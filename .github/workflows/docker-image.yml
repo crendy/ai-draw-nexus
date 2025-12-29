@@ -1,0 +1,46 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    tags:
+      - '*'   # 当新增tag时触发工作流
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Resolve tag & write VERSION
+        run: |
+          git fetch --tags --force --depth=1
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "$TAG" > VERSION
+          echo "Building tag: $TAG for ${{ matrix.arch }}"
+
+      # setup-qemu 如果您想使用 QEMU 添加仿真支持以便能够针对更多平台进行构建，则 action 会很有用
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      # setup-buildx-action 将默认使用docker-container 构建器驱动程序创建和引导构建器。非必需
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Aliyun DockerHub
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.ALIYUN_DOCKERHUB_REGISTRY}}
+          username: ${{ secrets.ALIYUN_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.ALIYUN_DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/crendy_yu/ai-draw-nexus:${{ env.TAG }}-${{ matrix.arch }}
+            crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/crendy_yu/ai-draw-nexus:latest
+          labels: ${{ steps.meta.outputs.labels }}
