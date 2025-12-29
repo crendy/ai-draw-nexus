@@ -317,7 +317,7 @@ if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
 
   // Handle SPA routing: return index.html for any unknown route
-  app.get('(.*)', (req, res) => {
+  app.get('/:pathMatch(.*)', (req, res) => {
     if (!req.path.startsWith('/api')) {
       res.sendFile(path.join(distPath, 'index.html'));
     } else {
