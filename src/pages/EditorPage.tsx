@@ -1,16 +1,31 @@
-import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Menu, History, Pencil, Check, X, Plus, FolderOpen, Home, Save, Download, Image, Code, FileText, ChevronRight } from 'lucide-react'
-import { Button, Input, Loading } from '@/components/ui'
-import { ChatPanel } from '@/features/chat/ChatPanel'
-import { CanvasArea, type CanvasAreaRef } from '@/features/editor/CanvasArea'
-import { VersionPanel } from '@/features/editor/VersionPanel'
-import { useEditorStore } from '@/stores/editorStore'
-import { useChatStore } from '@/stores/chatStore'
-import { ProjectRepository } from '@/services/projectRepository'
-import { VersionRepository } from '@/services/versionRepository'
-import { generateThumbnail } from '@/lib/thumbnail'
-import { useToast } from '@/hooks/useToast'
+import {useEffect, useRef, useState} from 'react'
+import {useNavigate, useParams} from 'react-router-dom'
+import {
+  Check,
+  ChevronRight,
+  Code,
+  Download,
+  FileText,
+  FolderOpen,
+  History,
+  Home,
+  Image,
+  Menu,
+  Pencil,
+  Plus,
+  Save,
+  X
+} from 'lucide-react'
+import {Button, Input, Loading} from '@/components/ui'
+import {ChatPanel} from '@/features/chat/ChatPanel'
+import {CanvasArea, type CanvasAreaRef} from '@/features/editor/CanvasArea'
+import {VersionPanel} from '@/features/editor/VersionPanel'
+import {useEditorStore} from '@/stores/editorStore'
+import {useChatStore} from '@/stores/chatStore'
+import {ProjectRepository} from '@/services/projectRepository'
+import {VersionRepository} from '@/services/versionRepository'
+import {generateThumbnail} from '@/lib/thumbnail'
+import {useToast} from '@/hooks/useToast'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,12 +33,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/Dropdown'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/Tooltip'
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,} from '@/components/ui/Tooltip'
 
 export function EditorPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -227,35 +237,38 @@ export function EditorPage() {
       {/* Toolbar */}
       <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-4">
         <div className="flex items-center gap-4">
-          <div className="relative" ref={menuRef}>
-            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              <Menu className="h-4 w-4" />
-            </Button>
-            {isMenuOpen && (
-              <div className="absolute left-0 top-full z-50 mt-1 w-40 rounded-md border border-border bg-surface py-1 shadow-lg">
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted/50"
-                  onClick={handleNewProject}
-                >
-                  <Plus className="h-4 w-4" />
-                  新建项目
-                </button>
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted/50"
-                  onClick={handleProjectManagement}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  项目管理
-                </button>
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted/50"
-                  onClick={handleGoHome}
-                >
+          <div className="flex items-center gap-2">
+            <div className="relative" ref={menuRef}>
+              <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                <Menu className="h-4 w-4" />
+              </Button>
+              {isMenuOpen && (
+                <div className="absolute left-0 top-full z-50 mt-1 w-40 rounded-md border border-border bg-surface py-1 shadow-lg">
+                  <button
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted/50"
+                    onClick={handleNewProject}
+                  >
+                    <Plus className="h-4 w-4" />
+                    新建项目
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted/50"
+                    onClick={handleProjectManagement}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                    项目管理
+                  </button>
+                </div>
+              )}
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={handleGoHome}>
                   <Home className="h-4 w-4" />
-                  首页
-                </button>
-              </div>
-            )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>首页</TooltipContent>
+            </Tooltip>
           </div>
           <div>
             {isEditingTitle ? (

@@ -1,10 +1,11 @@
-import { v4 as uuidv4 } from 'uuid'
-import { db } from '@/lib/db'
-import type { Project, EngineType } from '@/types'
+import {v4 as uuidv4} from 'uuid'
+import type {EngineType, Project} from '@/types'
+
+const API_BASE = '/api'
 
 /**
  * Project Repository
- * Data access layer for project management
+ * Data access layer for project management (Server-side storage)
  */
 export const ProjectRepository = {
   /**
@@ -14,6 +15,7 @@ export const ProjectRepository = {
     title: string
     engineType: EngineType
     thumbnail?: string
+    groupId?: string
   }): Promise<Project> {
     const now = new Date()
     const project: Project = {
@@ -21,11 +23,21 @@ export const ProjectRepository = {
       title: data.title,
       engineType: data.engineType,
       thumbnail: data.thumbnail || '',
+      groupId: data.groupId,
       createdAt: now,
       updatedAt: now,
     }
 
-    await db.projects.add(project)
+    const response = await fetch(`${API_BASE}/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(project),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to create project')
+    }
+
     return project
   },
 
@@ -33,14 +45,32 @@ export const ProjectRepository = {
    * Get project by ID
    */
   async getById(id: string): Promise<Project | undefined> {
-    return db.projects.get(id)
+    const response = await fetch(`${API_BASE}/projects/${id}`)
+    if (response.status === 404) return undefined
+    if (!response.ok) throw new Error('Failed to get project')
+
+    const project = await response.json()
+    // Convert date strings back to Date objects
+    return {
+      ...project,
+      createdAt: new Date(project.createdAt),
+      updatedAt: new Date(project.updatedAt),
+    }
   },
 
   /**
    * Get all projects, sorted by updatedAt descending
    */
   async getAll(): Promise<Project[]> {
-    return db.projects.orderBy('updatedAt').reverse().toArray()
+    const response = await fetch(`${API_BASE}/projects`)
+    if (!response.ok) throw new Error('Failed to get projects')
+
+    const projects = await response.json()
+    return projects.map((p: any) => ({
+      ...p,
+      createdAt: new Date(p.createdAt),
+      updatedAt: new Date(p.updatedAt),
+    }))
   },
 
   /**
@@ -50,32 +80,38 @@ export const ProjectRepository = {
     id: string,
     data: Partial<Omit<Project, 'id' | 'createdAt'>>
   ): Promise<void> {
-    await db.projects.update(id, {
-      ...data,
-      updatedAt: new Date(),
+    const response = await fetch(`${API_BASE}/projects/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...data,
+        updatedAt: new Date(),
+      }),
     })
+
+    if (!response.ok) throw new Error('Failed to update project')
   },
 
   /**
    * Delete project and its version history
    */
   async delete(id: string): Promise<void> {
-    await db.transaction('rw', [db.projects, db.versionHistory], async () => {
-      // Delete all version history for this project
-      await db.versionHistory.where('projectId').equals(id).delete()
-      // Delete the project
-      await db.projects.delete(id)
+    const response = await fetch(`${API_BASE}/projects/${id}`, {
+      method: 'DELETE',
     })
+
+    if (!response.ok) throw new Error('Failed to delete project')
   },
 
   /**
    * Search projects by title keyword
    */
   async search(keyword: string): Promise<Project[]> {
+    // Fetch all and filter client-side for simplicity
+    const projects = await this.getAll()
     const lowerKeyword = keyword.toLowerCase()
-    return db.projects
-      .filter((project) => project.title.toLowerCase().includes(lowerKeyword))
-      .reverse()
-      .sortBy('updatedAt')
+    return projects.filter((project) =>
+      project.title.toLowerCase().includes(lowerKeyword)
+    )
   },
 }

@@ -4,27 +4,35 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"pnpm run dev:frontend\" \"pnpm run dev:backend\"",
+    "dev": "concurrently \"pnpm run dev:frontend\" \"pnpm run dev:server\"",
     "dev:frontend": "vite",
-    "dev:backend": "wrangler pages dev --compatibility-date=2024-01-01 --proxy=5173",
+    "dev:server": "node server/index.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "pages:deploy": "pnpm run build && wrangler pages deploy dist"
+    "docker:build": "docker build -t ai-draw-nexus .",
+    "docker:run": "docker-compose up -d"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.0",
     "@mermaid-js/layout-elk": "^0.2.0",
     "@mermaid-js/layout-tidy-tree": "^0.2.0",
     "@monaco-editor/react": "^4.7.0",
+    "@mozilla/readability": "^0.6.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-toast": "^1.2.15",
     "@radix-ui/react-tooltip": "^1.2.8",
     "clsx": "^2.1.1",
+    "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dexie": "^4.2.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "fs-extra": "^11.3.3",
+    "linkedom": "^0.18.12",
     "lucide-react": "^0.562.0",
     "mammoth": "^1.11.0",
     "mermaid": "^11.12.2",
@@ -34,11 +42,9 @@
     "react-drawio": "^1.0.7",
     "react-router-dom": "^7.11.0",
     "tailwind-merge": "^3.4.0",
+    "turndown": "^7.2.2",
     "uuid": "^13.0.0",
-    "zustand": "^5.0.9",
-    "@mozilla/readability": "^0.6.0",
-    "linkedom": "^0.18.12",
-    "turndown": "^7.2.2"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240925.0",
@@ -50,6 +56,7 @@
     "@types/turndown": "^5.0.6",
     "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.1.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -58,7 +65,6 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
-    "wrangler": "^3.75.0",
-    "concurrently": "^9.1.0"
+    "wrangler": "^3.75.0"
   }
 }

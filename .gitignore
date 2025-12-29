@@ -27,3 +27,5 @@ dist-ssr
 *.vars
 
 .wrangler
+
+.dev.vars

@@ -1,12 +1,21 @@
 // Engine Types
 export type EngineType = 'mermaid' | 'excalidraw' | 'drawio'
 
+// Group
+export interface Group {
+  id: string
+  name: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 // Project
 export interface Project {
   id: string
   title: string
   engineType: EngineType
   thumbnail: string // Base64 string for preview
+  groupId?: string // Optional, if undefined/null -> 'Uncategorized'
   createdAt: Date
   updatedAt: Date
 }

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "a8dff7ce-84b1-436c-a47b-f7f622d6cf8f",
+    "projectId": "977a852b-d517-4d55-8d22-2634ba6f8ab6",
+    "content": "%%{init: {\n  \"theme\": \"base\",\n  \"themeVariables\": {\n    \"primaryColor\": \"#e3f2fd\",\n    \"primaryTextColor\": \"#0d47a1\",\n    \"primaryBorderColor\": \"#2196f3\",\n    \"lineColor\": \"#546e7a\",\n    \"fontSize\": \"14px\",\n    \"tertiaryColor\": \"#f5f5f5\"\n  },\n  \"flowchart\": { \"curve\": \"basis\", \"htmlLabels\": true, \"useMaxWidth\": true }\n}}%%\n\ngraph LR\n    A[\"开始\"] --> B[\"处理步骤1\"]\n    B --> C[\"判断条件?\"]\n    C{\"条件是否满足\"} ==>|是| D[\"处理步骤2\"]\n    C{\"条件是否满足\"} -.->|否| E[\"异常处理\"]\n    D --> F[\"结束\"]\n    E --> F",
+    "changeSummary": "初始生成",
+    "timestamp": "2025-12-29T08:42:48.723Z"
+  }
+]

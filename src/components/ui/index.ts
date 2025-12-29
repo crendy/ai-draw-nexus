@@ -38,6 +38,18 @@ export {
   DropdownMenuRadioGroup,
 } from './Dropdown'
 export {
+  Select,
+  SelectGroup,
+  SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectLabel,
+  SelectItem,
+  SelectSeparator,
+  SelectScrollUpButton,
+  SelectScrollDownButton,
+} from './Select'
+export {
   Tooltip,
   TooltipTrigger,
   TooltipContent,

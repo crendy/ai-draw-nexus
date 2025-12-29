@@ -4,6 +4,7 @@ export interface Env {
   AI_API_KEY: string
   AI_MODEL_ID: string
   ACCESS_PASSWORD?: string
+  AI_DRAW_KV: KVNamespace
 }
 
 export interface Message {

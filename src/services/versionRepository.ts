@@ -1,10 +1,11 @@
-import { v4 as uuidv4 } from 'uuid'
-import { db } from '@/lib/db'
-import type { VersionHistory } from '@/types'
+import {v4 as uuidv4} from 'uuid'
+import type {VersionHistory} from '@/types'
+
+const API_BASE = '/api'
 
 /**
  * Version History Repository
- * Data access layer for version history management
+ * Data access layer for version history management (Server-side storage)
  */
 export const VersionRepository = {
   /**
@@ -23,7 +24,16 @@ export const VersionRepository = {
       timestamp: new Date(),
     }
 
-    await db.versionHistory.add(version)
+    const response = await fetch(`${API_BASE}/projects/${data.projectId}/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(version),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to create version')
+    }
+
     return version
   },
 
@@ -31,44 +41,58 @@ export const VersionRepository = {
    * Get all versions for a project, sorted by timestamp descending
    */
   async getByProjectId(projectId: string): Promise<VersionHistory[]> {
-    return db.versionHistory
-      .where('projectId')
-      .equals(projectId)
-      .reverse()
-      .sortBy('timestamp')
+    const response = await fetch(`${API_BASE}/projects/${projectId}/versions`)
+    if (!response.ok) return []
+
+    const versions = await response.json()
+    return versions.map((v: any) => ({
+      ...v,
+      timestamp: new Date(v.timestamp),
+    }))
   },
 
   /**
    * Get the latest version for a project
    */
   async getLatest(projectId: string): Promise<VersionHistory | undefined> {
-    const versions = await db.versionHistory
-      .where('projectId')
-      .equals(projectId)
-      .reverse()
-      .sortBy('timestamp')
-    return versions[0]
+    const response = await fetch(`${API_BASE}/projects/${projectId}/versions/latest`)
+    if (response.status === 404) return undefined
+    if (!response.ok) throw new Error('Failed to get latest version')
+
+    const version = await response.json()
+    return {
+      ...version,
+      timestamp: new Date(version.timestamp),
+    }
   },
 
   /**
    * Get version by ID
+   * Note: This is inefficient in file-based backend without projectId
+   * But currently not used in critical path.
    */
   async getById(id: string): Promise<VersionHistory | undefined> {
-    return db.versionHistory.get(id)
+    // Not implemented efficiently.
+    // If needed, we'd need to search all project version files.
+    console.warn('VersionRepository.getById is not fully supported in server mode')
+    return undefined
   },
 
   /**
    * Delete a specific version
    */
   async delete(id: string): Promise<void> {
-    await db.versionHistory.delete(id)
+    console.warn('VersionRepository.delete is not supported in server mode')
   },
 
   /**
    * Delete all versions for a project
    */
   async deleteByProjectId(projectId: string): Promise<void> {
-    await db.versionHistory.where('projectId').equals(projectId).delete()
+    const response = await fetch(`${API_BASE}/projects/${projectId}/versions`, {
+      method: 'DELETE',
+    })
+    if (!response.ok) throw new Error('Failed to delete versions')
   },
 
   /**
@@ -76,9 +100,12 @@ export const VersionRepository = {
    * Used when user manually edits the diagram (e.g., in Excalidraw)
    */
   async updateLatest(projectId: string, content: string): Promise<void> {
-    const latest = await this.getLatest(projectId)
-    if (latest) {
-      await db.versionHistory.update(latest.id, { content })
-    }
+    const response = await fetch(`${API_BASE}/projects/${projectId}/versions/latest`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    })
+
+    if (!response.ok) throw new Error('Failed to update latest version')
   },
 }

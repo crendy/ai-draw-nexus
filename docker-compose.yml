@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  ai-draw-nexus:
+    build: .
+    image: ai-draw-nexus:latest
+    container_name: ai-draw-nexus
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Map local data directory to container data directory
+      # On NAS, change ./data to your actual path, e.g., /volume1/docker/aidraw/data
+      - ./data/aidraw:/app/data
+    environment:
+      - PORT=3000
+      - DATA_DIR=/app/data
+      # AI Configuration
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_BASE_URL=${AI_BASE_URL:-https://api.openai.com/v1}
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
+      - AI_MODEL_ID=${AI_MODEL_ID:-gpt-3.5-turbo}
+

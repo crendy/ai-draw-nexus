@@ -1,27 +1,35 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, Trash2, Sparkles, Pencil, Upload } from 'lucide-react'
+import {useEffect, useMemo, useState} from 'react'
+import {useLocation, useNavigate} from 'react-router-dom'
+import {Folder, FolderOpen, MoreVertical, Plus, Search, Sparkles, Upload} from 'lucide-react'
 import {
   Button,
-  Input,
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
   Loading,
 } from '@/components/ui'
-import { AppSidebar, AppHeader, CreateProjectDialog, ImportProjectDialog } from '@/components/layout'
-import { formatDate } from '@/lib/utils'
-import type { Project } from '@/types'
-import { ProjectRepository } from '@/services/projectRepository'
+import {AppHeader, AppSidebar, CreateProjectDialog, ImportProjectDialog} from '@/components/layout'
+import {formatDate} from '@/lib/utils'
+import type {Group, Project} from '@/types'
+import {ProjectRepository} from '@/services/projectRepository'
+import {GroupRepository} from '@/services/groupRepository'
 
 export function ProjectsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [projects, setProjects] = useState<Project[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null) // null = All, 'uncategorized' = Uncategorized
   const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Create dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -38,9 +46,26 @@ export function ProjectsPage() {
   const [newTitle, setNewTitle] = useState('')
   const [isRenaming, setIsRenaming] = useState(false)
 
-  // Load projects
+  // Group dialogs state
+  const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false)
+
+  const [editGroupTarget, setEditGroupTarget] = useState<Group | null>(null)
+  const [editGroupName, setEditGroupName] = useState('')
+  const [isEditingGroup, setIsEditingGroup] = useState(false)
+
+  const [deleteGroupTarget, setDeleteGroupTarget] = useState<Group | null>(null)
+  const [isDeletingGroup, setIsDeletingGroup] = useState(false)
+
+  // Move project dialog state
+  const [moveProjectTarget, setMoveProjectTarget] = useState<Project | null>(null)
+  const [targetGroupId, setTargetGroupId] = useState<string>('')
+  const [isMovingProject, setIsMovingProject] = useState(false)
+
+  // Load data
   useEffect(() => {
-    loadProjects()
+    loadData()
   }, [])
 
   // Open create dialog if navigated with state
@@ -52,17 +77,44 @@ export function ProjectsPage() {
     }
   }, [location.state])
 
-  const loadProjects = async () => {
+  const loadData = async () => {
     setIsLoading(true)
     try {
-      const data = await ProjectRepository.getAll()
-      setProjects(data)
+      const [projectsData, groupsData] = await Promise.all([
+        ProjectRepository.getAll(),
+        GroupRepository.getAll()
+      ])
+      setProjects(projectsData)
+      setGroups(groupsData)
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      console.error('Failed to load data:', error)
     } finally {
       setIsLoading(false)
     }
   }
+
+  const filteredProjects = useMemo(() => {
+    let filtered = projects
+
+    // Filter by group
+    if (selectedGroupId === 'uncategorized') {
+      filtered = filtered.filter(p => !p.groupId)
+    } else if (selectedGroupId) {
+      filtered = filtered.filter(p => p.groupId === selectedGroupId)
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter((project) =>
+        project.title.toLowerCase().includes(query)
+      )
+    }
+
+    return filtered
+  }, [projects, searchQuery, selectedGroupId])
+
+  // --- Project Actions ---
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -71,7 +123,7 @@ export function ProjectsPage() {
     try {
       await ProjectRepository.delete(deleteTarget.id)
       setDeleteTarget(null)
-      loadProjects()
+      loadData() // Reload all data to be safe
     } catch (error) {
       console.error('Failed to delete project:', error)
     } finally {
@@ -87,7 +139,7 @@ export function ProjectsPage() {
       await ProjectRepository.update(renameTarget.id, { title: newTitle.trim() })
       setRenameTarget(null)
       setNewTitle('')
-      loadProjects()
+      loadData()
     } catch (error) {
       console.error('Failed to rename project:', error)
     } finally {
@@ -95,9 +147,81 @@ export function ProjectsPage() {
     }
   }
 
+  const handleMoveProject = async () => {
+    if (!moveProjectTarget) return
+
+    setIsMovingProject(true)
+    try {
+      // If targetGroupId is empty string, it means 'Uncategorized' (remove groupId)
+      // Hack: cast to any to allow null if needed, or just rely on the fact that we are updating.
+      await ProjectRepository.update(moveProjectTarget.id, { groupId: targetGroupId || null } as any)
+
+      setMoveProjectTarget(null)
+      setTargetGroupId('')
+      loadData()
+    } catch (error) {
+      console.error('Failed to move project:', error)
+    } finally {
+      setIsMovingProject(false)
+    }
+  }
+
   const openRenameDialog = (project: Project) => {
     setRenameTarget(project)
     setNewTitle(project.title)
+  }
+
+  // --- Group Actions ---
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return
+
+    setIsCreatingGroup(true)
+    try {
+      await GroupRepository.create(newGroupName.trim())
+      setNewGroupName('')
+      setIsCreateGroupDialogOpen(false)
+      loadData()
+    } catch (error) {
+      console.error('Failed to create group:', error)
+    } finally {
+      setIsCreatingGroup(false)
+    }
+  }
+
+  const handleEditGroup = async () => {
+    if (!editGroupTarget || !editGroupName.trim()) return
+
+    setIsEditingGroup(true)
+    try {
+      await GroupRepository.update(editGroupTarget.id, editGroupName.trim())
+      setEditGroupTarget(null)
+      setEditGroupName('')
+      loadData()
+    } catch (error) {
+      console.error('Failed to update group:', error)
+    } finally {
+      setIsEditingGroup(false)
+    }
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!deleteGroupTarget) return
+
+    setIsDeletingGroup(true)
+    try {
+      await GroupRepository.delete(deleteGroupTarget.id)
+      // If we deleted the currently selected group, switch to All
+      if (selectedGroupId === deleteGroupTarget.id) {
+        setSelectedGroupId(null)
+      }
+      setDeleteGroupTarget(null)
+      loadData()
+    } catch (error) {
+      console.error('Failed to delete group:', error)
+    } finally {
+      setIsDeletingGroup(false)
+    }
   }
 
   return (
@@ -111,130 +235,256 @@ export function ProjectsPage() {
         <AppHeader />
 
         {/* Page Content */}
-        <div className="flex-1 px-8 py-6">
-          <div className="mx-auto max-w-7xl">
-            {/* Page Title & Actions */}
-            <div className="mb-8 flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-primary">项目列表</h1>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsImportDialogOpen(true)}
-                  className="rounded-full px-6"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  导入项目
-                </Button>
-                <Button
-                  onClick={() => setIsCreateDialogOpen(true)}
-                  className="rounded-full bg-primary px-6 text-surface hover:bg-primary/90"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  新建项目
-                </Button>
-              </div>
-            </div>
+        <div className="flex flex-1 overflow-hidden">
+          <div className="mx-auto flex w-full max-w-7xl gap-6 px-8 py-6">
 
-            {/* Projects Grid */}
-            {isLoading ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loading size="lg" />
-              </div>
-            ) : projects.length === 0 ? (
-              <div className="flex h-64 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface">
-                <Sparkles className="mb-4 h-12 w-12 text-muted" />
-                <p className="mb-4 text-muted">暂无项目</p>
+            {/* Left Sidebar: Groups */}
+            <div className="w-64 flex-shrink-0 space-y-2">
+              <div className="mb-4 flex items-center justify-between px-2">
+                <h2 className="text-sm font-semibold text-muted-foreground">分组</h2>
                 <Button
-                  onClick={() => setIsCreateDialogOpen(true)}
-                  className="rounded-full bg-primary px-6 text-surface hover:bg-primary/90"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setIsCreateGroupDialogOpen(true)}
                 >
-                  创建你的第一个项目
+                  <Plus className="h-4 w-4" />
                 </Button>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {/* New Project Card */}
+
+              <div className="space-y-1">
                 <button
-                  onClick={() => setIsCreateDialogOpen(true)}
-                  className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface transition-all hover:border-primary hover:shadow-md"
-                  style={{ height: 'calc(8rem + 68px)' }}
+                  onClick={() => setSelectedGroupId(null)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    selectedGroupId === null
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-muted hover:text-primary'
+                  }`}
                 >
-                  <Plus className="mb-2 h-6 w-6 text-muted" />
-                  <span className="text-sm text-muted">新建项目</span>
+                  <Folder className="h-4 w-4" />
+                  全部项目
+                  <span className="ml-auto text-xs opacity-60">{projects.length}</span>
                 </button>
 
-                {/* Project Cards */}
-                {projects.map((project) => (
-                  <div
-                    key={project.id}
-                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-primary hover:shadow-md"
-                    onClick={() => navigate(`/editor/${project.id}`)}
-                  >
-                    {/* Action Buttons - 右上角 */}
-                    <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 bg-surface/80 backdrop-blur-sm hover:bg-surface"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openRenameDialog(project)
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 bg-surface/80 text-red-600 backdrop-blur-sm hover:bg-surface hover:text-red-700"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDeleteTarget(project)
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                <button
+                  onClick={() => setSelectedGroupId('uncategorized')}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    selectedGroupId === 'uncategorized'
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-muted hover:text-primary'
+                  }`}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  未分组
+                  <span className="ml-auto text-xs opacity-60">
+                    {projects.filter(p => !p.groupId).length}
+                  </span>
+                </button>
 
-                    {/* Thumbnail - 固定高度 */}
-                    <div className="flex h-32 items-center justify-center bg-background">
-                      {project.thumbnail ? (
-                        <img
-                          src={project.thumbnail}
-                          alt={project.title}
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <Sparkles className="h-8 w-8 text-muted" />
-                      )}
-                    </div>
+                {groups.map(group => (
+                  <div key={group.id} className="group/item relative">
+                    <button
+                      onClick={() => setSelectedGroupId(group.id)}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        selectedGroupId === group.id
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:bg-muted hover:text-primary'
+                      }`}
+                    >
+                      <Folder className="h-4 w-4" />
+                      <span className="truncate">{group.name}</span>
+                      <span className="ml-auto text-xs opacity-60">
+                        {projects.filter(p => p.groupId === group.id).length}
+                      </span>
+                    </button>
 
-                    {/* Info */}
-                    <div className="p-3">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate text-sm font-medium text-primary">
-                          {project.title}
-                        </h3>
-                        <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                          project.engineType === 'excalidraw'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                            : project.engineType === 'drawio'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                              : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                        }`}>
-                          {project.engineType.toUpperCase()}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted">
-                        更新于 {formatDate(project.updatedAt)}
-                      </p>
+                    {/* Group Actions Dropdown */}
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover/item:opacity-100">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6">
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setEditGroupTarget(group)
+                            setEditGroupName(group.name)
+                          }}>
+                            重命名
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => setDeleteGroupTarget(group)}
+                          >
+                            删除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
+
+            {/* Right Content: Projects Grid */}
+            <div className="flex-1 min-w-0">
+              {/* Page Title & Actions */}
+              <div className="mb-8 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <h1 className="text-2xl font-bold text-primary">
+                    {selectedGroupId === null ? '全部项目' :
+                     selectedGroupId === 'uncategorized' ? '未分组' :
+                     groups.find(g => g.id === selectedGroupId)?.name || '项目列表'}
+                  </h1>
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                    <Input
+                      placeholder="搜索项目..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-9 rounded-full border-border bg-surface pl-9 pr-4 text-sm focus:border-primary"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsImportDialogOpen(true)}
+                    className="rounded-full px-6"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    导入项目
+                  </Button>
+                  <Button
+                    onClick={() => setIsCreateDialogOpen(true)}
+                    className="rounded-full bg-primary px-6 text-surface hover:bg-primary/90"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    新建项目
+                  </Button>
+                </div>
+              </div>
+
+              {/* Projects Grid */}
+              {isLoading ? (
+                <div className="flex h-64 items-center justify-center">
+                  <Loading size="lg" />
+                </div>
+              ) : filteredProjects.length === 0 ? (
+                <div className="flex h-64 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface">
+                  <Sparkles className="mb-4 h-12 w-12 text-muted" />
+                  <p className="mb-4 text-muted">
+                    {searchQuery ? '未找到匹配的项目' : '暂无项目'}
+                  </p>
+                  {!searchQuery && (
+                    <Button
+                      onClick={() => setIsCreateDialogOpen(true)}
+                      className="rounded-full bg-primary px-6 text-surface hover:bg-primary/90"
+                    >
+                      创建你的第一个项目
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {/* New Project Card - Only show when not searching and viewing All or Uncategorized */}
+                  {!searchQuery && (selectedGroupId === null || selectedGroupId === 'uncategorized') && (
+                    <button
+                      onClick={() => setIsCreateDialogOpen(true)}
+                      className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface transition-all hover:border-primary hover:shadow-md"
+                      style={{ height: 'calc(8rem + 68px)' }}
+                    >
+                      <Plus className="mb-2 h-6 w-6 text-muted" />
+                      <span className="text-sm text-muted">新建项目</span>
+                    </button>
+                  )}
+
+                  {/* Project Cards */}
+                  {filteredProjects.map((project) => (
+                    <div
+                      key={project.id}
+                      className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-primary hover:shadow-md"
+                      onClick={() => navigate(`/editor/${project.id}`)}
+                    >
+                      {/* Action Buttons - 右上角 */}
+                      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 bg-surface/80 backdrop-blur-sm hover:bg-surface"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation()
+                              openRenameDialog(project)
+                            }}>
+                              重命名
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation()
+                              setMoveProjectTarget(project)
+                              setTargetGroupId(project.groupId || '')
+                            }}>
+                              移动到...
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600 focus:text-red-600"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDeleteTarget(project)
+                              }}
+                            >
+                              删除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      {/* Thumbnail - 固定高度 */}
+                      <div className="flex h-32 items-center justify-center bg-background">
+                        {project.thumbnail ? (
+                          <img
+                            src={project.thumbnail}
+                            alt={project.title}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <Sparkles className="h-8 w-8 text-muted" />
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="p-3">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate text-sm font-medium text-primary">
+                            {project.title}
+                          </h3>
+                          <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                            project.engineType === 'excalidraw'
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                              : project.engineType === 'drawio'
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                          }`}>
+                            {project.engineType.toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted">
+                          更新于 {formatDate(project.updatedAt)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>
@@ -308,6 +558,154 @@ export function ProjectsPage() {
               className="rounded-full bg-red-600 text-surface hover:bg-red-700"
             >
               {isDeleting ? '删除中...' : '删除'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Group Dialog */}
+      <Dialog open={isCreateGroupDialogOpen} onOpenChange={setIsCreateGroupDialogOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>新建分组</DialogTitle>
+          </DialogHeader>
+          <Input
+            className='my-4'
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            placeholder="分组名称"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreateGroup()
+            }}
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateGroupDialogOpen(false)}
+              className="rounded-full"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleCreateGroup}
+              disabled={isCreatingGroup || !newGroupName.trim()}
+              className="rounded-full bg-primary text-surface hover:bg-primary/90"
+            >
+              {isCreatingGroup ? '创建中...' : '创建'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Group Dialog */}
+      <Dialog open={!!editGroupTarget} onOpenChange={() => setEditGroupTarget(null)}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>重命名分组</DialogTitle>
+          </DialogHeader>
+          <Input
+            className='my-4'
+            value={editGroupName}
+            onChange={(e) => setEditGroupName(e.target.value)}
+            placeholder="分组名称"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleEditGroup()
+            }}
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditGroupTarget(null)}
+              className="rounded-full"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleEditGroup}
+              disabled={isEditingGroup || !editGroupName.trim()}
+              className="rounded-full bg-primary text-surface hover:bg-primary/90"
+            >
+              {isEditingGroup ? '保存中...' : '保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Group Dialog */}
+      <Dialog open={!!deleteGroupTarget} onOpenChange={() => setDeleteGroupTarget(null)}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>删除分组</DialogTitle>
+            <DialogDescription className='my-4'>
+              确定要删除分组 &quot;{deleteGroupTarget?.name}&quot; 吗？组内的项目将变为未分组状态。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteGroupTarget(null)}
+              className="rounded-full"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleDeleteGroup}
+              disabled={isDeletingGroup}
+              className="rounded-full bg-red-600 text-surface hover:bg-red-700"
+            >
+              {isDeletingGroup ? '删除中...' : '删除'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move Project Dialog */}
+      <Dialog open={!!moveProjectTarget} onOpenChange={() => setMoveProjectTarget(null)}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>移动项目到分组</DialogTitle>
+          </DialogHeader>
+          <div className="my-4 space-y-2">
+            <button
+              onClick={() => setTargetGroupId('')}
+              className={`flex w-full items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
+                targetGroupId === ''
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border hover:bg-muted'
+              }`}
+            >
+              <FolderOpen className="h-4 w-4" />
+              未分组
+            </button>
+            {groups.map(group => (
+              <button
+                key={group.id}
+                onClick={() => setTargetGroupId(group.id)}
+                className={`flex w-full items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
+                  targetGroupId === group.id
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border hover:bg-muted'
+                }`}
+              >
+                <Folder className="h-4 w-4" />
+                {group.name}
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMoveProjectTarget(null)}
+              className="rounded-full"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleMoveProject}
+              disabled={isMovingProject}
+              className="rounded-full bg-primary text-surface hover:bg-primary/90"
+            >
+              {isMovingProject ? '移动中...' : '移动'}
             </Button>
           </DialogFooter>
         </DialogContent>

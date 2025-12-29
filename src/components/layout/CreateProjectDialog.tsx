@@ -1,18 +1,23 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import {useEffect, useState} from 'react'
+import {useNavigate} from 'react-router-dom'
 import {
   Button,
-  Input,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui'
-import { ENGINES } from '@/constants'
-import { ProjectRepository } from '@/services/projectRepository'
-import type { EngineType } from '@/types'
+import {ENGINES} from '@/constants'
+import {ProjectRepository} from '@/services/projectRepository'
+import {GroupRepository} from '@/services/groupRepository'
+import type {EngineType, Group} from '@/types'
 
 const ENGINE_TIPS: Record<EngineType, { title: string; features: string[] }> = {
   mermaid: {
@@ -47,7 +52,24 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
   const navigate = useNavigate()
   const [title, setTitle] = useState('未命名')
   const [engine, setEngine] = useState<EngineType>('mermaid')
+  const [groupId, setGroupId] = useState<string>('uncategorized')
+  const [groups, setGroups] = useState<Group[]>([])
   const [isCreating, setIsCreating] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      loadGroups()
+    }
+  }, [open])
+
+  const loadGroups = async () => {
+    try {
+      const data = await GroupRepository.getAll()
+      setGroups(data)
+    } catch (error) {
+      console.error('Failed to load groups:', error)
+    }
+  }
 
   const handleCreate = async () => {
     if (!title.trim()) return
@@ -57,9 +79,11 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
       const project = await ProjectRepository.create({
         title: title.trim(),
         engineType: engine,
+        groupId: groupId === 'uncategorized' ? undefined : groupId,
       })
       onOpenChange(false)
       setTitle('未命名')
+      setGroupId('uncategorized')
       navigate(`/editor/${project.id}`)
     } catch (error) {
       console.error('Failed to create project:', error)
@@ -72,6 +96,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     if (!newOpen) {
       setTitle('未命名')
       setEngine('mermaid')
+      setGroupId('uncategorized')
     }
     onOpenChange(newOpen)
   }
@@ -92,6 +117,24 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
               className="rounded-xl"
             />
           </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">分组</label>
+            <Select value={groupId} onValueChange={setGroupId}>
+              <SelectTrigger className="w-full rounded-xl">
+                <SelectValue placeholder="选择分组" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="uncategorized">未分组</SelectItem>
+                {groups.map((group) => (
+                  <SelectItem key={group.id} value={group.id}>
+                    {group.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <label className="mb-2 block text-sm font-medium">引擎</label>
             <div className="flex gap-2">

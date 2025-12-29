@@ -1,0 +1,9 @@
+[
+  {
+    "id": "65d5fc9b-a5b5-4a65-8b32-606b0d904a9c",
+    "projectId": "2340aeee-2ed6-4744-83f1-496a2a26f0a9",
+    "content": "%%{init: {\n  \"theme\": \"base\",\n  \"themeVariables\": {\n    \"primaryColor\": \"#e3f2fd\",\n    \"primaryTextColor\": \"#0d47a1\",\n    \"primaryBorderColor\": \"#2196f3\",\n    \"lineColor\": \"#546e7a\",\n    \"fontSize\": \"14px\",\n    \"tertiaryColor\": \"#f5f5f5\"\n  },\n  \"flowchart\": { \"curve\": \"basis\", \"htmlLabels\": true, \"useMaxWidth\": true }\n}}%%\n\nflowchart LR\n\nsubgraph 用户登录流程\n    用户输入账号密码[\"用户输入账号密码\"]\n    用户输入账号密码 --> 验证账号密码[\"验证账号密码\"]\n    验证账号密码 --> 登录成功[\"登录成功\"]\n    验证账号密码 --> 登录失败[\"登录失败\"]\n    登录成功 --> 结束[\"结束\"]\n    登录失败 --> 重新输入[\"重新输入账号密码\"]\nend\n\n用户输入账号密码 -->|正常流程| 验证账号密码\n验证账号密码 -->|成功| 登录成功\n验证账号密码 -->|失败| 登录失败\n登录失败 -.-> 重新输入\n登录成功 --> 结束",
+    "changeSummary": "初始生成",
+    "timestamp": "2025-12-29T11:09:39.461Z"
+  }
+]
