@@ -41,6 +41,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/crendy_yu/ai-draw:${{ env.TAG }}-${{ matrix.arch }}
-            crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/crendy_yu/ai-draw:latest
+            crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/crendy_yu/ai-draw-nexus:${{ env.TAG }}-${{ matrix.arch }}
+            crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/crendy_yu/ai-draw-nexus:latest
           labels: ${{ steps.meta.outputs.labels }}
