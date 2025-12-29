@@ -6,6 +6,13 @@
 
 基于 Cloudflare Pages 构建，前端 React + 后端 Pages Functions 一体化部署。
 
+## 界面截图
+
+<img width="2324" height="1248" alt="image" src="https://github.com/user-attachments/assets/3f3ed9ca-9c4a-4782-888a-391c5ac8a17d" />
+<img width="2324" height="1248" alt="image" src="https://github.com/user-attachments/assets/51f3ac22-ac35-4031-8b65-740c99164238" />
+<img width="2324" height="1248" alt="image" src="https://github.com/user-attachments/assets/d21aa025-1785-47c8-b6b3-9e9a2f2b7a21" />
+
+
 ## 核心亮点
 
 ### 三大绘图引擎

@@ -1,10 +1,20 @@
 # AI Diagram Hub
+[中文版](https://github.com/liujuntao123/ai-draw-nexus/blob/main/README.zh-CN.md)
 
 **Online**: https://ai-draw-nexus.aizhi.site
+
+![generated-image-1766740104116](https://github.com/user-attachments/assets/3e69fa19-d31f-40b2-976c-ddb24ac138c1)
+
 
 An AI-powered diagram creation platform. Describe your diagram in natural language, and AI generates it for you.
 
 Built on Cloudflare Pages with React frontend and Pages Functions backend.
+
+## screenshot
+<img width="2324" height="1248" alt="image" src="https://github.com/user-attachments/assets/3f3ed9ca-9c4a-4782-888a-391c5ac8a17d" />
+<img width="2324" height="1248" alt="image" src="https://github.com/user-attachments/assets/51f3ac22-ac35-4031-8b65-740c99164238" />
+<img width="2324" height="1248" alt="image" src="https://github.com/user-attachments/assets/d21aa025-1785-47c8-b6b3-9e9a2f2b7a21" />
+
 
 ## Key Highlights
 
