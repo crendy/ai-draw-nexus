@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install system dependencies
+RUN apk add --no-cache libc6-compat
+
 # Install pnpm
 RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.com/
 
@@ -10,7 +13,7 @@ RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.c
 COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN pnpm install
+RUN pnpm install --registry=https://registry.npmmirror.com/
 
 # Copy source code
 COPY . .
@@ -23,6 +26,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Install system dependencies
+RUN apk add --no-cache libc6-compat
+
 # Install pnpm
 RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.com/
 
@@ -30,7 +36,7 @@ RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.c
 COPY package.json pnpm-lock.yaml ./
 
 # Install production dependencies only (including express for server)
-RUN pnpm install --prod
+RUN pnpm install --prod --registry=https://registry.npmmirror.com/
 
 # Copy built frontend assets
 COPY --from=builder /app/dist ./dist

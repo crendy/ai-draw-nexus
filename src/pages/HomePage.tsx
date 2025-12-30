@@ -23,7 +23,7 @@ import {
 export function HomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
-  const [selectedEngine, setSelectedEngine] = useState<EngineType>('mermaid')
+  const [selectedEngine, setSelectedEngine] = useState<EngineType>('drawio')
   const [isLoading, setIsLoading] = useState(false)
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
   const [showEngineDropdown, setShowEngineDropdown] = useState(false)
@@ -420,9 +420,9 @@ export function HomePage() {
                       >
                         {ENGINES.map((engine) => {
                           const descriptions: Record<string, string> = {
+                            drawio: '专业而强大的绘图工具',
                             mermaid: '简洁标准的图形绘制',
                             excalidraw: '优雅干净的手绘风格',
-                            drawio: '专业而强大的绘图工具',
                           }
                           return (
                             <button
