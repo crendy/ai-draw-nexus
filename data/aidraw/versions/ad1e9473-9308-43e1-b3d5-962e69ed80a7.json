@@ -1,9 +1,0 @@
-[
-  {
-    "id": "9c4d218e-900d-4ba1-89ef-8ca31ce4775b",
-    "projectId": "ad1e9473-9308-43e1-b3d5-962e69ed80a7",
-    "content": "%%{init: {\n  \"theme\": \"base\",\n  \"themeVariables\": {\n    \"primaryColor\": \"#e3f2fd\",\n    \"primaryTextColor\": \"#0d47a1\",\n    \"primaryBorderColor\": \"#2196f3\",\n    \"lineColor\": \"#546e7a\",\n    \"fontSize\": \"14px\",\n    \"tertiaryColor\": \"#f5f5f5\"\n  },\n  \"flowchart\": { \"curve\": \"basis\", \"htmlLabels\": true, \"useMaxWidth\": true }\n}}%%\n\ngraph LR\n    %% 开始节点\n    Start[\"开始\"] --> Order[\"接单\"]\n    %% 接单后处理\n    Order --> Accept[\"确认接单\"]\n    Accept --> Navigate[\"导航至订单地点\"]\n    %% 骑手到达地点\n    Navigate --> Arrive[\"到达订单地点\"]\n    Arrive --> PickUp[\"取餐\"]\n    %% 取餐后处理\n    PickUp --> Deliver[\"配送中\"]\n    Deliver --> AtDelivery[\"到达收餐地点\"]\n    AtDelivery --> HandOver[\"交接订单\"]\n    HandOver --> End[\"结束\"]\n    \n    %% 异常路径\n    AtDelivery -.-> Return[\"返回取餐点\"]\n    Return --> PickUp\n    HandOver -.-> Cancel[\"取消订单\"]\n    Cancel --> End\n    \n    %% 子图 - 配送路径\n    subgraph main[\"主流程\"]\n      Start --> Order\n      Order --> Accept\n      Accept --> Navigate\n      Navigate --> Arrive\n      Arrive --> PickUp\n      PickUp --> Deliver\n      Deliver --> AtDelivery\n      AtDelivery --> HandOver\n      HandOver --> End\n    end\n    \n    %% 子图 - 异常处理\n    subgraph exceptions[\"异常处理\"]\n      AtDelivery -.-> Return\n      Return --> PickUp\n      HandOver -.-> Cancel\n      Cancel --> End\n    end",
-    "changeSummary": "初始生成",
-    "timestamp": "2025-12-29T09:11:25.367Z"
-  }
-]

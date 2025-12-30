@@ -1,9 +1,0 @@
-[
-  {
-    "id": "2a6361dc-05fc-441a-a6a9-68d317e43704",
-    "projectId": "74a572e6-e613-4630-ac3f-8bb915eb2eef",
-    "content": "<mxfile host=\"embed.diagrams.net\" agent=\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 QuarkPC/6.1.0.653\" version=\"29.2.9\">\n  <diagram id=\"fxsb_jP3zbe2XDAWl9mb\" name=\"第 1 页\">\n    <mxGraphModel dx=\"1384\" dy=\"729\" grid=\"1\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"1\" pageScale=\"1\" pageWidth=\"827\" pageHeight=\"1169\" math=\"0\" shadow=\"0\">\n      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n        <mxCell id=\"2\" parent=\"1\" style=\"rounded=0;whiteSpace=wrap;html=1;\" value=\"\" vertex=\"1\">\n          <mxGeometry height=\"60\" width=\"120\" x=\"294\" y=\"200\" as=\"geometry\" />\n        </mxCell>\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>\n",
-    "changeSummary": "人工调整",
-    "timestamp": "2025-12-29T08:45:34.932Z"
-  }
-]

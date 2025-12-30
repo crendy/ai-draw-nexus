@@ -1,9 +1,0 @@
-[
-  {
-    "id": "082da4a8-fa78-451b-b8f2-59f41462796c",
-    "projectId": "10629bf5-2272-4d14-b95a-6daf5e149a2c",
-    "content": "%%{init: {\n  \"theme\": \"base\",\n  \"themeVariables\": {\n    \"primaryColor\": \"#e3f2fd\",\n    \"primaryTextColor\": \"#0d47a1\",\n    \"primaryBorderColor\": \"#2196f3\",\n    \"lineColor\": \"#546e7a\",\n    \"fontSize\": \"14px\",\n    \"tertiaryColor\": \"#f5f5f5\"\n  },\n  \"flowchart\": { \"curve\": \"basis\", \"htmlLabels\": true, \"useMaxWidth\": true }\n}}%%\n\nflowchart TD\n    classDef main fill:#e3f2fd,stroke:#2196f3,stroke-width:1.5px,color:#0d47a1;\n    classDef decision fill:#fff3e0,stroke:#ff9800,stroke-width:1.5px,color:#e65100;\n    classDef term fill:#e8f5e9,stroke:#4caf50,stroke-width:1.5px,color:#1b5e20;\n    classDef storage fill:#f3e5f5,stroke:#9c27b0,stroke-width:1.5px,color:#4a148c;\n\n    S[\"登录入口\"]:::main == 用户发起登录请求 ==>\n    I[\"输入账号密码\"]:::main --> V{\"登录验证\"}:::decision\n\n    V -->|验证通过| L[\"登录成功\"]:::term\n    V -->|验证失败| F[\"登录失败\"]:::term\n\n    L -- 用户进入系统 --> nil\n    F -- 提示错误信息 --> nil",
-    "changeSummary": "初始生成",
-    "timestamp": "2025-12-30T03:39:04.315Z"
-  }
-]

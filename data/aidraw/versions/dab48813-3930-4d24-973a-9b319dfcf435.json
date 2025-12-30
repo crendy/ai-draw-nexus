@@ -1,9 +1,0 @@
-[
-  {
-    "id": "8cc55cf4-52d9-427f-93e6-5863e329eeb0",
-    "projectId": "dab48813-3930-4d24-973a-9b319dfcf435",
-    "content": "<mxfile host=\"embed.diagrams.net\" agent=\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 QuarkPC/6.1.0.653\" version=\"29.2.9\">\n  <diagram id=\"hSm_yOf8n3Af01tnZ1MH\" name=\"第 1 页\">\n    <mxGraphModel dx=\"1384\" dy=\"729\" grid=\"1\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"1\" pageScale=\"1\" pageWidth=\"827\" pageHeight=\"1169\" math=\"0\" shadow=\"0\">\n      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n        <mxCell id=\"2\" parent=\"1\" style=\"rounded=0;whiteSpace=wrap;html=1;\" value=\"\" vertex=\"1\">\n          <mxGeometry height=\"60\" width=\"120\" x=\"280\" y=\"180\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"3\" parent=\"1\" style=\"ellipse;whiteSpace=wrap;html=1;aspect=fixed;\" value=\"\" vertex=\"1\">\n          <mxGeometry height=\"80\" width=\"80\" x=\"270\" y=\"140\" as=\"geometry\" />\n        </mxCell>\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>\n",
-    "changeSummary": "人工调整",
-    "timestamp": "2025-12-29T08:46:03.946Z"
-  }
-]
