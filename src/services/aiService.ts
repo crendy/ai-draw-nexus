@@ -1,15 +1,17 @@
 import type {ChatRequest, PayloadMessage} from '@/types'
 import {quotaService} from './quotaService'
+import {authService} from './authService'
 
 // API endpoint - can be configured via environment variable
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 /**
- * 获取请求头（包含访问密码）
+ * 获取请求头（包含访问密码和Auth Token）
  */
 function getHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...authService.getAuthHeader()
   }
   const password = quotaService.getAccessPassword()
   if (password) {
@@ -116,6 +118,12 @@ export const aiService = {
         body: JSON.stringify(request),
       })
 
+      if (response.status === 401) {
+        authService.logout()
+        window.location.href = '/login'
+        throw new Error('登录已过期，请重新登录')
+      }
+
       if (!response.ok) {
         const error = await response.text()
         throw new Error(`AI request failed: ${error}`)
@@ -177,6 +185,12 @@ export const aiService = {
         headers: getHeaders(),
         body: JSON.stringify(request),
       })
+
+      if (response.status === 401) {
+        authService.logout()
+        window.location.href = '/login'
+        throw new Error('登录已过期，请重新登录')
+      }
 
       if (!response.ok) {
         const error = await response.text()
@@ -255,9 +269,15 @@ export const aiService = {
   async parseUrl(url: string): Promise<ParseUrlResponse> {
     const response = await fetch(`${API_BASE_URL}/parse-url`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify({ url }),
     })
+
+    if (response.status === 401) {
+      authService.logout()
+      window.location.href = '/login'
+      throw new Error('登录已过期，请重新登录')
+    }
 
     const data: ParseUrlResponse = await response.json()
 

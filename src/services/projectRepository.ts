@@ -1,5 +1,6 @@
 import {v4 as uuidv4} from 'uuid'
 import type {EngineType, Project} from '@/types'
+import {authService} from './authService'
 
 const API_BASE = '/api'
 
@@ -30,7 +31,10 @@ export const ProjectRepository = {
 
     const response = await fetch(`${API_BASE}/projects`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeader()
+      },
       body: JSON.stringify(project),
     })
 
@@ -45,7 +49,9 @@ export const ProjectRepository = {
    * Get project by ID
    */
   async getById(id: string): Promise<Project | undefined> {
-    const response = await fetch(`${API_BASE}/projects/${id}`)
+    const response = await fetch(`${API_BASE}/projects/${id}`, {
+      headers: authService.getAuthHeader()
+    })
     if (response.status === 404) return undefined
     if (!response.ok) throw new Error('Failed to get project')
 
@@ -62,7 +68,9 @@ export const ProjectRepository = {
    * Get all projects, sorted by updatedAt descending
    */
   async getAll(): Promise<Project[]> {
-    const response = await fetch(`${API_BASE}/projects`)
+    const response = await fetch(`${API_BASE}/projects`, {
+      headers: authService.getAuthHeader()
+    })
     if (!response.ok) throw new Error('Failed to get projects')
 
     const projects = await response.json()
@@ -82,7 +90,10 @@ export const ProjectRepository = {
   ): Promise<void> {
     const response = await fetch(`${API_BASE}/projects/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeader()
+      },
       body: JSON.stringify({
         ...data,
         updatedAt: new Date(),
@@ -98,6 +109,7 @@ export const ProjectRepository = {
   async delete(id: string): Promise<void> {
     const response = await fetch(`${API_BASE}/projects/${id}`, {
       method: 'DELETE',
+      headers: authService.getAuthHeader()
     })
 
     if (!response.ok) throw new Error('Failed to delete project')

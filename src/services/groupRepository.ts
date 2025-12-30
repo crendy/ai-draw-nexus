@@ -1,5 +1,6 @@
 import {v4 as uuidv4} from 'uuid'
 import type {Group} from '@/types'
+import {authService} from './authService'
 
 const API_BASE = '/api'
 
@@ -22,7 +23,10 @@ export const GroupRepository = {
 
     const response = await fetch(`${API_BASE}/groups`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeader()
+      },
       body: JSON.stringify(group),
     })
 
@@ -37,7 +41,9 @@ export const GroupRepository = {
    * Get all groups, sorted by createdAt ascending
    */
   async getAll(): Promise<Group[]> {
-    const response = await fetch(`${API_BASE}/groups`)
+    const response = await fetch(`${API_BASE}/groups`, {
+      headers: authService.getAuthHeader()
+    })
     if (!response.ok) throw new Error('Failed to get groups')
 
     const groups = await response.json()
@@ -54,7 +60,10 @@ export const GroupRepository = {
   async update(id: string, name: string): Promise<void> {
     const response = await fetch(`${API_BASE}/groups/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeader()
+      },
       body: JSON.stringify({
         name,
         updatedAt: new Date(),
@@ -70,6 +79,7 @@ export const GroupRepository = {
   async delete(id: string): Promise<void> {
     const response = await fetch(`${API_BASE}/groups/${id}`, {
       method: 'DELETE',
+      headers: authService.getAuthHeader()
     })
 
     if (!response.ok) throw new Error('Failed to delete group')

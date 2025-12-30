@@ -1,19 +1,14 @@
-import { useChatStore } from '@/stores/chatStore'
-import { useEditorStore } from '@/stores/editorStore'
-import { usePayloadStore } from '@/stores/payloadStore'
-import { VersionRepository } from '@/services/versionRepository'
-import { ProjectRepository } from '@/services/projectRepository'
-import {
-  SYSTEM_PROMPTS,
-  buildInitialPrompt,
-  buildEditPrompt,
-  extractCode,
-} from '@/lib/promptBuilder'
-import { generateThumbnail } from '@/lib/thumbnail'
-import { aiService } from '@/services/aiService'
-import { validateContent } from '@/lib/validators'
-import { useToast } from '@/hooks/useToast'
-import type { PayloadMessage, EngineType, Attachment, ContentPart } from '@/types'
+import {useChatStore} from '@/stores/chatStore'
+import {useEditorStore} from '@/stores/editorStore'
+import {usePayloadStore} from '@/stores/payloadStore'
+import {VersionRepository} from '@/services/versionRepository'
+import {ProjectRepository} from '@/services/projectRepository'
+import {buildEditPrompt, buildInitialPrompt, extractCode, SYSTEM_PROMPTS,} from '@/lib/promptBuilder'
+import {generateThumbnail} from '@/lib/thumbnail'
+import {aiService} from '@/services/aiService'
+import {validateContent} from '@/lib/validators'
+import {useToast} from '@/hooks/useToast'
+import type {Attachment, ContentPart, EngineType, PayloadMessage} from '@/types'
 
 // Enable streaming by default, can be configured
 const USE_STREAMING = true

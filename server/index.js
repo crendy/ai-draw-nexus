@@ -4,11 +4,13 @@ import fs from 'fs-extra';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import {v4 as uuidv4} from 'uuid';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load environment variables
-// Try loading from .dev.vars first (Wrangler format), then .env
 const devVarsPath = path.join(__dirname, '../.dev.vars');
 const envPath = path.join(__dirname, '../.env');
 
@@ -20,18 +22,16 @@ if (fs.existsSync(devVarsPath)) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 // --- Storage Configuration ---
-// In Docker, we will mount a volume to /app/data
-// Locally, we fallback to ./data/aidraw
 let DATA_DIR = process.env.DATA_DIR || '/app/data';
 
 try {
   fs.ensureDirSync(DATA_DIR);
-  // Test write
   const testFile = path.join(DATA_DIR, '.test');
   fs.writeFileSync(testFile, 'test');
   fs.removeSync(testFile);
@@ -45,11 +45,28 @@ try {
 
 const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
 const GROUPS_FILE = path.join(DATA_DIR, 'groups.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const VERSIONS_DIR = path.join(DATA_DIR, 'versions');
 
 fs.ensureDirSync(VERSIONS_DIR);
 
 // --- Helpers ---
+async function getUsers() {
+  try {
+    if (await fs.pathExists(USERS_FILE)) {
+      return await fs.readJson(USERS_FILE);
+    }
+    return [];
+  } catch (err) {
+    console.error('Error reading users:', err);
+    return [];
+  }
+}
+
+async function saveUsers(users) {
+  await fs.writeJson(USERS_FILE, users, { spaces: 2 });
+}
+
 async function getProjects() {
   try {
     if (await fs.pathExists(PROJECTS_FILE)) {
@@ -99,26 +116,75 @@ async function saveVersions(projectId, versions) {
   await fs.writeJson(file, versions, { spaces: 2 });
 }
 
-// --- API Routes ---
+// --- Middleware ---
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-// Groups
-app.get('/api/groups', async (req, res) => {
-  const groups = await getGroups();
-  groups.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json(groups);
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+
+// --- Auth Routes ---
+app.post('/api/auth/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+
+  const users = await getUsers();
+  if (users.find(u => u.username === username)) {
+    return res.status(400).json({ error: 'Username already exists' });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const user = { id: uuidv4(), username, password: hashedPassword, createdAt: new Date().toISOString() };
+
+  users.push(user);
+  await saveUsers(users);
+
+  res.status(201).json({ message: 'User created successfully' });
 });
 
-app.post('/api/groups', async (req, res) => {
-  const group = req.body;
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  const users = await getUsers();
+  const user = users.find(u => u.username === username);
+
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    return res.status(400).json({ error: 'Invalid credentials' });
+  }
+
+  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+  res.json({ token, user: { id: user.id, username: user.username } });
+});
+
+// --- Protected API Routes ---
+
+// Groups
+app.get('/api/groups', authenticateToken, async (req, res) => {
+  const groups = await getGroups();
+  const userGroups = groups.filter(g => g.userId === req.user.id);
+  userGroups.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json(userGroups);
+});
+
+app.post('/api/groups', authenticateToken, async (req, res) => {
+  const group = { ...req.body, userId: req.user.id };
   const groups = await getGroups();
   groups.push(group);
   await saveGroups(groups);
   res.status(201).json(group);
 });
 
-app.put('/api/groups/:id', async (req, res) => {
+app.put('/api/groups/:id', authenticateToken, async (req, res) => {
   const groups = await getGroups();
-  const index = groups.findIndex(g => g.id === req.params.id);
+  const index = groups.findIndex(g => g.id === req.params.id && g.userId === req.user.id);
   if (index !== -1) {
     groups[index] = { ...groups[index], ...req.body };
     await saveGroups(groups);
@@ -128,8 +194,14 @@ app.put('/api/groups/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/groups/:id', async (req, res) => {
+app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
   const groups = await getGroups();
+  const groupIndex = groups.findIndex(g => g.id === req.params.id && g.userId === req.user.id);
+
+  if (groupIndex === -1) {
+    return res.status(404).json({ error: 'Group not found' });
+  }
+
   const newGroups = groups.filter(g => g.id !== req.params.id);
   await saveGroups(newGroups);
 
@@ -137,7 +209,7 @@ app.delete('/api/groups/:id', async (req, res) => {
   const projects = await getProjects();
   let projectsChanged = false;
   projects.forEach(p => {
-    if (p.groupId === req.params.id) {
+    if (p.groupId === req.params.id && p.userId === req.user.id) {
       delete p.groupId;
       projectsChanged = true;
     }
@@ -151,30 +223,31 @@ app.delete('/api/groups/:id', async (req, res) => {
 });
 
 // Projects
-app.get('/api/projects', async (req, res) => {
+app.get('/api/projects', authenticateToken, async (req, res) => {
   const projects = await getProjects();
-  projects.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-  res.json(projects);
+  const userProjects = projects.filter(p => p.userId === req.user.id);
+  userProjects.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  res.json(userProjects);
 });
 
-app.get('/api/projects/:id', async (req, res) => {
+app.get('/api/projects/:id', authenticateToken, async (req, res) => {
   const projects = await getProjects();
-  const project = projects.find(p => p.id === req.params.id);
+  const project = projects.find(p => p.id === req.params.id && p.userId === req.user.id);
   if (project) res.json(project);
   else res.status(404).json({ error: 'Project not found' });
 });
 
-app.post('/api/projects', async (req, res) => {
-  const project = req.body;
+app.post('/api/projects', authenticateToken, async (req, res) => {
+  const project = { ...req.body, userId: req.user.id };
   const projects = await getProjects();
   projects.push(project);
   await saveProjects(projects);
   res.status(201).json(project);
 });
 
-app.put('/api/projects/:id', async (req, res) => {
+app.put('/api/projects/:id', authenticateToken, async (req, res) => {
   const projects = await getProjects();
-  const index = projects.findIndex(p => p.id === req.params.id);
+  const index = projects.findIndex(p => p.id === req.params.id && p.userId === req.user.id);
   if (index !== -1) {
     projects[index] = { ...projects[index], ...req.body };
     await saveProjects(projects);
@@ -184,8 +257,14 @@ app.put('/api/projects/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/projects/:id', async (req, res) => {
+app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   const projects = await getProjects();
+  const projectIndex = projects.findIndex(p => p.id === req.params.id && p.userId === req.user.id);
+
+  if (projectIndex === -1) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   const newProjects = projects.filter(p => p.id !== req.params.id);
   await saveProjects(newProjects);
 
@@ -197,13 +276,28 @@ app.delete('/api/projects/:id', async (req, res) => {
 });
 
 // Versions
-app.get('/api/projects/:id/versions', async (req, res) => {
+// Note: Versions are tied to projects, so we check project ownership first
+app.get('/api/projects/:id/versions', authenticateToken, async (req, res) => {
+  const projects = await getProjects();
+  const project = projects.find(p => p.id === req.params.id && p.userId === req.user.id);
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   const versions = await getVersions(req.params.id);
   versions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   res.json(versions);
 });
 
-app.get('/api/projects/:id/versions/latest', async (req, res) => {
+app.get('/api/projects/:id/versions/latest', authenticateToken, async (req, res) => {
+  const projects = await getProjects();
+  const project = projects.find(p => p.id === req.params.id && p.userId === req.user.id);
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   const versions = await getVersions(req.params.id);
   if (versions.length > 0) {
     versions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -213,7 +307,14 @@ app.get('/api/projects/:id/versions/latest', async (req, res) => {
   }
 });
 
-app.post('/api/projects/:id/versions', async (req, res) => {
+app.post('/api/projects/:id/versions', authenticateToken, async (req, res) => {
+  const projects = await getProjects();
+  const project = projects.find(p => p.id === req.params.id && p.userId === req.user.id);
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   const version = req.body;
   const versions = await getVersions(req.params.id);
   versions.push(version);
@@ -221,7 +322,14 @@ app.post('/api/projects/:id/versions', async (req, res) => {
   res.status(201).json(version);
 });
 
-app.put('/api/projects/:id/versions/latest', async (req, res) => {
+app.put('/api/projects/:id/versions/latest', authenticateToken, async (req, res) => {
+  const projects = await getProjects();
+  const project = projects.find(p => p.id === req.params.id && p.userId === req.user.id);
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   const versions = await getVersions(req.params.id);
   if (versions.length > 0) {
     versions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -238,7 +346,14 @@ app.put('/api/projects/:id/versions/latest', async (req, res) => {
   }
 });
 
-app.delete('/api/projects/:id/versions', async (req, res) => {
+app.delete('/api/projects/:id/versions', authenticateToken, async (req, res) => {
+  const projects = await getProjects();
+  const project = projects.find(p => p.id === req.params.id && p.userId === req.user.id);
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   const versionFile = path.join(VERSIONS_DIR, `${req.params.id}.json`);
   if (await fs.pathExists(versionFile)) {
     await fs.remove(versionFile);
@@ -248,7 +363,7 @@ app.delete('/api/projects/:id/versions', async (req, res) => {
 
 // --- AI Proxy ---
 // Forward chat requests to the AI provider
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', authenticateToken, async (req, res) => {
   const startTime = Date.now();
   const debug = process.env.DEBUG === 'true';
   if (debug) {

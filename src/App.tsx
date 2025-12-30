@@ -1,17 +1,25 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { TooltipProvider, Toaster } from '@/components/ui'
-import { HomePage, ProjectsPage, EditorPage, ProfilePage, AboutPage } from '@/pages'
+import {BrowserRouter, Route, Routes} from 'react-router-dom'
+import {Toaster, TooltipProvider} from '@/components/ui'
+import {AboutPage, EditorPage, HomePage, LoginPage, ProfilePage, ProjectsPage, RegisterPage} from '@/pages'
+import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
 
 function App() {
   return (
     <TooltipProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/editor/:projectId" element={<EditorPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="/about" element={<AboutPage />} />
+
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/editor/:projectId" element={<EditorPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
         </Routes>
       </BrowserRouter>
       <Toaster />

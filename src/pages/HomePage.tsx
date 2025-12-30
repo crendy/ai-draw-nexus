@@ -8,6 +8,7 @@ import { formatDate } from '@/lib/utils'
 import type { EngineType, Project, UrlAttachment, Attachment, ImageAttachment, DocumentAttachment } from '@/types'
 import { ProjectRepository } from '@/services/projectRepository'
 import { useChatStore } from '@/stores/chatStore'
+import { useAuthStore } from '@/stores/authStore'
 import { aiService } from '@/services/aiService'
 import { useToast } from '@/hooks/useToast'
 import {
@@ -34,6 +35,7 @@ export function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const setInitialPrompt = useChatStore((state) => state.setInitialPrompt)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const { error: showError } = useToast()
 
   // 新建项目弹窗状态
@@ -63,6 +65,11 @@ export function HomePage() {
 
   const handleQuickStart = async () => {
     if (!prompt.trim()) return
+
+    if (!isAuthenticated()) {
+      navigate('/login')
+      return
+    }
 
     setIsLoading(true)
     try {
@@ -103,6 +110,7 @@ export function HomePage() {
       navigate(`/editor/${project.id}`)
     } catch (error) {
       console.error('Failed to create project:', error)
+      showError('创建项目失败，请重试')
     } finally {
       setIsLoading(false)
     }

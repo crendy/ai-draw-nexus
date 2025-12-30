@@ -1,6 +1,18 @@
-import { Sparkles } from 'lucide-react'
+import {LogOut, Sparkles} from 'lucide-react'
+import {Button} from '@/components/ui'
+import {authService} from '@/services/authService'
+import {useNavigate} from 'react-router-dom'
+import {useAuthStore} from '@/stores/authStore'
 
 export function AppHeader() {
+  const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+
+  const handleLogout = () => {
+    authService.logout()
+    navigate('/login')
+  }
+
   return (
     <header className="flex items-center justify-between px-8 py-4">
       <div className="flex items-center gap-2">
@@ -12,18 +24,21 @@ export function AppHeader() {
 
       <div className="flex items-center gap-4">
         <span className="text-sm text-muted">简体中文</span>
-        {/* <button className="flex h-8 w-8 items-center justify-center rounded-full border border-border">
-          <span className="text-xs">🔔</span>
-        </button> */}
-        {/* <button className="flex items-center gap-2 rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-surface">
-          升级
-          <span className="flex items-center gap-1 rounded-full bg-surface/20 px-2 py-0.5 text-xs">
-            ⚡ 100
-          </span>
-        </button>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-medium text-surface">
-          U
-        </div> */}
+        {user && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{user.username}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              title="退出登录"
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>退出</span>
+            </Button>
+          </div>
+        )}
       </div>
     </header>
   )

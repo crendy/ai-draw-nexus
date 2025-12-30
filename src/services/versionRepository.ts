@@ -1,5 +1,6 @@
 import {v4 as uuidv4} from 'uuid'
 import type {VersionHistory} from '@/types'
+import {authService} from './authService'
 
 const API_BASE = '/api'
 
@@ -26,7 +27,10 @@ export const VersionRepository = {
 
     const response = await fetch(`${API_BASE}/projects/${data.projectId}/versions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeader()
+      },
       body: JSON.stringify(version),
     })
 
@@ -41,7 +45,9 @@ export const VersionRepository = {
    * Get all versions for a project, sorted by timestamp descending
    */
   async getByProjectId(projectId: string): Promise<VersionHistory[]> {
-    const response = await fetch(`${API_BASE}/projects/${projectId}/versions`)
+    const response = await fetch(`${API_BASE}/projects/${projectId}/versions`, {
+      headers: authService.getAuthHeader()
+    })
     if (!response.ok) return []
 
     const versions = await response.json()
@@ -55,7 +61,9 @@ export const VersionRepository = {
    * Get the latest version for a project
    */
   async getLatest(projectId: string): Promise<VersionHistory | undefined> {
-    const response = await fetch(`${API_BASE}/projects/${projectId}/versions/latest`)
+    const response = await fetch(`${API_BASE}/projects/${projectId}/versions/latest`, {
+      headers: authService.getAuthHeader()
+    })
     if (response.status === 404) return undefined
     if (!response.ok) throw new Error('Failed to get latest version')
 
@@ -91,6 +99,7 @@ export const VersionRepository = {
   async deleteByProjectId(projectId: string): Promise<void> {
     const response = await fetch(`${API_BASE}/projects/${projectId}/versions`, {
       method: 'DELETE',
+      headers: authService.getAuthHeader()
     })
     if (!response.ok) throw new Error('Failed to delete versions')
   },
@@ -102,7 +111,10 @@ export const VersionRepository = {
   async updateLatest(projectId: string, content: string): Promise<void> {
     const response = await fetch(`${API_BASE}/projects/${projectId}/versions/latest`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeader()
+      },
       body: JSON.stringify({ content }),
     })
 
