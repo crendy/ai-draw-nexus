@@ -7,8 +7,8 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import {v4 as uuidv4} from 'uuid';
-import { parseHTML } from 'linkedom';
-import { Readability } from '@mozilla/readability';
+import {parseHTML} from 'linkedom';
+import {Readability} from '@mozilla/readability';
 import TurndownService from 'turndown';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -216,6 +216,33 @@ app.post('/api/auth/login', async (req, res) => {
 
   const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
   res.json({ token, user: { id: user.id, username: user.username } });
+});
+
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current and new passwords are required' });
+  }
+
+  const users = await getUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const user = users[userIndex];
+  const isValid = await bcrypt.compare(currentPassword, user.password);
+
+  if (!isValid) {
+    return res.status(400).json({ error: 'Invalid current password' });
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  users[userIndex] = { ...user, password: hashedPassword };
+  await saveUsers(users);
+
+  res.json({ message: 'Password updated successfully' });
 });
 
 // --- Protected API Routes ---

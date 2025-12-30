@@ -35,6 +35,24 @@ export const authService = {
     return await response.json()
   },
 
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await fetch(`${API_BASE}/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader()
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to change password')
+    }
+
+    return await response.json()
+  },
+
   logout() {
     useAuthStore.getState().logout()
   },

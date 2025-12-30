@@ -1,18 +1,22 @@
-import { useState, useEffect } from 'react'
-import { AppSidebar, AppHeader } from '@/components/layout'
-import { Button, Input } from '@/components/ui'
-import { quotaService } from '@/services/quotaService'
-import { useToast } from '@/hooks/useToast'
-import { Settings, Eye, EyeOff, MessageCircle } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import {useEffect, useState} from 'react'
+import {AppHeader, AppSidebar} from '@/components/layout'
+import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input} from '@/components/ui'
+import {quotaService} from '@/services/quotaService'
+import {authService} from '@/services/authService'
+import {useToast} from '@/hooks/useToast'
+import {Eye, EyeOff, MessageCircle, Settings, User} from 'lucide-react'
+import {Link} from 'react-router-dom'
+import {useAuthStore} from '@/stores/authStore'
 
 export function ProfilePage() {
-  const [activeTab] = useState('settings')
+  const [activeTab, setActiveTab] = useState('profile')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [quotaUsed, setQuotaUsed] = useState(0)
   const [quotaTotal, setQuotaTotal] = useState(10)
   const { success, error: showError } = useToast()
+  const user = useAuthStore((state) => state.user)
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false)
 
   useEffect(() => {
     // 加载配额信息
@@ -37,6 +41,15 @@ export function ProfilePage() {
     success('访问密码已清除')
   }
 
+  const handlePasswordChange = async (current: string, newPass: string) => {
+    try {
+      await authService.changePassword(current, newPass)
+      success('密码修改成功')
+    } catch (err) {
+      showError(err instanceof Error ? err.message : '密码修改失败')
+    }
+  }
+
   const quotaPercentage = Math.min(100, (quotaUsed / quotaTotal) * 100)
   const hasPassword = quotaService.hasAccessPassword()
 
@@ -52,6 +65,18 @@ export function ProfilePage() {
               <div className="w-48 border-r border-border p-4">
                 <nav className="space-y-1">
                   <button
+                    onClick={() => setActiveTab('profile')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'profile'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <User className="h-4 w-4" />
+                    <span>用户信息</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('settings')}
                     className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                       activeTab === 'settings'
                         ? 'bg-primary text-surface'
@@ -59,40 +84,68 @@ export function ProfilePage() {
                     }`}
                   >
                     <Settings className="h-4 w-4" />
-                    <span>设置</span>
+                    <span>AI服务设置</span>
                   </button>
                 </nav>
               </div>
 
               {/* 右侧内容区 */}
               <div className="flex-1 p-6">
-                <h2 className="mb-6 text-lg font-medium text-primary">设置</h2>
+                {activeTab === 'profile' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">用户信息</h2>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="text-sm font-medium text-muted">用户名</label>
+                        <div className="mt-1 text-lg font-medium text-primary">{user?.username}</div>
+                      </div>
+                      <div>
+                        <Button onClick={() => setIsChangePasswordDialogOpen(true)}>
+                          修改登录密码
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
 
-                {/* 每日配额 */}
-                <QuotaSection
-                  quotaUsed={quotaUsed}
-                  quotaTotal={quotaTotal}
-                  quotaPercentage={quotaPercentage}
-                  hasPassword={hasPassword}
-                />
+                {activeTab === 'settings' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">AI服务设置</h2>
 
-                {/* 分隔线 */}
-                <div className="my-6 border-t border-border" />
+                    {/* 每日配额 */}
+                    <QuotaSection
+                      quotaUsed={quotaUsed}
+                      quotaTotal={quotaTotal}
+                      quotaPercentage={quotaPercentage}
+                      hasPassword={hasPassword}
+                    />
 
-                {/* 访问密码 */}
-                <PasswordSection
-                  password={password}
-                  setPassword={setPassword}
-                  showPassword={showPassword}
-                  setShowPassword={setShowPassword}
-                  onSave={handleSavePassword}
-                  onReset={handleResetPassword}
-                />
+                    {/* 分隔线 */}
+                    <div className="my-6 border-t border-border" />
+
+                    {/* 访问密码 */}
+                    <PasswordSection
+                      password={password}
+                      setPassword={setPassword}
+                      showPassword={showPassword}
+                      setShowPassword={setShowPassword}
+                      onSave={handleSavePassword}
+                      onReset={handleResetPassword}
+                    />
+                  </>
+                )}
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* 修改密码弹窗 */}
+      <ChangePasswordDialog
+        open={isChangePasswordDialogOpen}
+        onOpenChange={setIsChangePasswordDialogOpen}
+        onSave={handlePasswordChange}
+      />
     </div>
   )
 }
@@ -189,5 +242,117 @@ function PasswordSection({
         </div>
       </div>
     </div>
+  )
+}
+
+interface ChangePasswordDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSave: (current: string, newPass: string) => Promise<void>
+}
+
+function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDialogProps) {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const { error: showError } = useToast()
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setShowCurrent(false)
+      setShowNew(false)
+    }
+  }, [open])
+
+  const handleSubmit = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showError('请填写所有字段')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      showError('两次输入的新密码不一致')
+      return
+    }
+
+    if (newPassword.length < 6) {
+      showError('新密码长度不能少于6位')
+      return
+    }
+
+    setLoading(true)
+    try {
+      await onSave(currentPassword, newPassword)
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>修改登录密码</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="relative">
+            <Input
+              type={showCurrent ? 'text' : 'password'}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="当前密码"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCurrent(!showCurrent)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+            >
+              {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+
+          <div className="relative">
+            <Input
+              type={showNew ? 'text' : 'password'}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="新密码"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowNew(!showNew)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+            >
+              {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+
+          <Input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="确认新密码"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+            取消
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading} className="rounded-full">
+            {loading ? '保存中...' : '确认修改'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
