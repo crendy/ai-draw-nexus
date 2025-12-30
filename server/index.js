@@ -317,11 +317,21 @@ if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
 
   // Handle SPA routing: return index.html for any unknown route
-  app.get(/.*/, (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(distPath, 'index.html'));
+  // Use a catch-all middleware instead of a route with wildcard to avoid path-to-regexp issues in Express 5
+  app.use(async (req, res) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      try {
+        let html = await fs.readFile(path.join(distPath, 'index.html'), 'utf-8');
+        // Inject environment variables
+        const envScript = `<script>window._ENV_ = { DEBUG: ${process.env.DEBUG === 'true'} };</script>`;
+        html = html.replace('</head>', `${envScript}</head>`);
+        res.send(html);
+      } catch (err) {
+        console.error('Error serving index.html:', err);
+        res.status(500).send('Internal Server Error');
+      }
     } else {
-      res.status(404).json({ error: 'API endpoint not found' });
+      res.status(404).json({ error: 'Not Found' });
     }
   });
 } else {

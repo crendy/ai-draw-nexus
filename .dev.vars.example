@@ -2,3 +2,4 @@ AI_API_KEY=你的密钥
 AI_BASE_URL=https://api.openai.com/v1
 AI_PROVIDER=openai
 AI_MODEL_ID=gpt-5
+DEBUG=true

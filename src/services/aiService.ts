@@ -1,5 +1,5 @@
-import type { PayloadMessage, ChatRequest } from '@/types'
-import { quotaService } from './quotaService'
+import type {ChatRequest, PayloadMessage} from '@/types'
+import {quotaService} from './quotaService'
 
 // API endpoint - can be configured via environment variable
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -94,25 +94,48 @@ export const aiService = {
    * Send chat messages to AI and get response (non-streaming)
    */
   async chat(messages: PayloadMessage[]): Promise<string> {
-    ensureQuotaAvailable()
-
-    const request: ChatRequest = { messages }
-
-    const response = await fetch(`${API_BASE_URL}/chat`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(request),
-    })
-
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`AI request failed: ${error}`)
+    const startTime = Date.now()
+    const debug = (window as any)._ENV_?.DEBUG
+    if (debug) {
+      console.log('[AI Service] Request Start:', JSON.stringify({ messages }, null, 2))
+    } else {
+      console.log('[AI Service] Request Start')
     }
 
-    checkAndConsumeQuota(response)
+    try {
+      ensureQuotaAvailable()
 
-    const data = await response.json()
-    return data.content || data.message || ''
+      const request: ChatRequest = { messages }
+
+      const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(request),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`AI request failed: ${error}`)
+      }
+
+      checkAndConsumeQuota(response)
+
+      const data = await response.json()
+      const content = data.content || data.message || ''
+
+      const duration = Date.now() - startTime
+      if (debug) {
+        console.log(`[AI Service] Request End. Duration: ${duration}ms`, JSON.stringify({ content }, null, 2))
+      } else {
+        console.log(`[AI Service] Request End. Duration: ${duration}ms`)
+      }
+
+      return content
+    } catch (error) {
+      const duration = Date.now() - startTime
+      console.error(`[AI Service] Request Failed. Duration: ${duration}ms`, error)
+      throw error
+    }
   },
 
   /**
@@ -127,70 +150,91 @@ export const aiService = {
     onChunk: (chunk: string, accumulated: string) => void,
     onComplete?: (content: string) => void
   ): Promise<string> {
-    ensureQuotaAvailable()
-
-    const request: ChatRequest = { messages, stream: true } as ChatRequest & { stream: boolean }
-
-    const response = await fetch(`${API_BASE_URL}/chat`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(request),
-    })
-
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`AI request failed: ${error}`)
+    const startTime = Date.now()
+    const debug = (window as any)._ENV_?.DEBUG
+    if (debug) {
+      console.log('[AI Service] Stream Request Start:', JSON.stringify({ messages }, null, 2))
+    } else {
+      console.log('[AI Service] Stream Request Start')
     }
-
-    // 流式请求成功后检查并消耗配额
-    checkAndConsumeQuota(response)
-
-    const reader = response.body?.getReader()
-    if (!reader) {
-      throw new Error('Failed to get response reader')
-    }
-
-    const decoder = new TextDecoder()
-    let fullContent = ''
-    let buffer = ''
 
     try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+      ensureQuotaAvailable()
 
-        buffer += decoder.decode(value, { stream: true })
+      const request: ChatRequest = { messages, stream: true } as ChatRequest & { stream: boolean }
 
-        // Process complete lines
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // Keep incomplete line in buffer
+      const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(request),
+      })
 
-        for (const line of lines) {
-          const trimmedLine = line.trim()
-          if (!trimmedLine) continue
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`AI request failed: ${error}`)
+      }
 
-          const content = parseSSELine(trimmedLine)
+      // 流式请求成功后检查并消耗配额
+      checkAndConsumeQuota(response)
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('Failed to get response reader')
+      }
+
+      const decoder = new TextDecoder()
+      let fullContent = ''
+      let buffer = ''
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+
+          // Process complete lines
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            const trimmedLine = line.trim()
+            if (!trimmedLine) continue
+
+            const content = parseSSELine(trimmedLine)
+            if (content) {
+              fullContent += content
+              onChunk(content, fullContent)
+            }
+          }
+        }
+
+        // Process remaining buffer
+        if (buffer.trim()) {
+          const content = parseSSELine(buffer.trim())
           if (content) {
             fullContent += content
             onChunk(content, fullContent)
           }
         }
+      } finally {
+        reader.releaseLock()
       }
 
-      // Process remaining buffer
-      if (buffer.trim()) {
-        const content = parseSSELine(buffer.trim())
-        if (content) {
-          fullContent += content
-          onChunk(content, fullContent)
-        }
+      const duration = Date.now() - startTime
+      if (debug) {
+        console.log(`[AI Service] Stream Request End. Duration: ${duration}ms`, JSON.stringify({ fullContent }, null, 2))
+      } else {
+        console.log(`[AI Service] Stream Request End. Duration: ${duration}ms`)
       }
-    } finally {
-      reader.releaseLock()
+
+      onComplete?.(fullContent)
+      return fullContent
+    } catch (error) {
+      const duration = Date.now() - startTime
+      console.error(`[AI Service] Stream Request Failed. Duration: ${duration}ms`, error)
+      throw error
     }
-
-    onComplete?.(fullContent)
-    return fullContent
   },
 
   /**

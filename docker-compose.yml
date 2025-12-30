@@ -15,6 +15,7 @@ services:
     environment:
       - PORT=3000
       - DATA_DIR=/app/data
+      - DEBUG=true
       # AI Configuration
       - AI_API_KEY=${AI_API_KEY}
       - AI_BASE_URL=${AI_BASE_URL:-https://api.openai.com/v1}
