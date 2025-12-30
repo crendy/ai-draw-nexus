@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.com/
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
@@ -24,7 +24,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.com/
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
