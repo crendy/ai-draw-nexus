@@ -7,6 +7,9 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import {v4 as uuidv4} from 'uuid';
+import { parseHTML } from 'linkedom';
+import { Readability } from '@mozilla/readability';
+import TurndownService from 'turndown';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,6 +54,57 @@ const VERSIONS_DIR = path.join(DATA_DIR, 'versions');
 fs.ensureDirSync(VERSIONS_DIR);
 
 // --- Helpers ---
+function isWechatArticle(url) {
+  return url.includes('mp.weixin.qq.com');
+}
+
+function preprocessWechatArticle(document) {
+  const jsContent = document.getElementById('js_content');
+  if (jsContent) {
+    jsContent.style.visibility = 'visible';
+    jsContent.style.display = 'block';
+  }
+
+  const images = document.querySelectorAll('img[data-src]');
+  images.forEach((img) => {
+    const dataSrc = img.getAttribute('data-src');
+    if (dataSrc) {
+      img.setAttribute('src', dataSrc);
+    }
+  });
+
+  const removeSelectors = [
+    '#js_pc_qr_code',
+    '#js_profile_qrcode',
+    '.qr_code_pc_outer',
+    '.rich_media_area_extra',
+    '.reward_area',
+    '#js_tags',
+    '.original_area_primary',
+    '.original_area_extra',
+  ];
+  removeSelectors.forEach((selector) => {
+    const elements = document.querySelectorAll(selector);
+    elements.forEach((el) => el.remove());
+  });
+}
+
+function extractWechatContent(document) {
+  const titleEl = document.getElementById('activity-name') ||
+                  document.querySelector('.rich_media_title') ||
+                  document.querySelector('h1');
+  const title = titleEl?.textContent?.trim() || '微信公众号文章';
+
+  const contentEl = document.getElementById('js_content') ||
+                    document.querySelector('.rich_media_content');
+
+  if (!contentEl) {
+    return null;
+  }
+
+  return { title, content: contentEl.innerHTML };
+}
+
 async function getUsers() {
   try {
     if (await fs.pathExists(USERS_FILE)) {
@@ -362,6 +416,115 @@ app.delete('/api/projects/:id/versions', authenticateToken, async (req, res) => 
 });
 
 // --- AI Proxy ---
+// Parse URL content
+app.post('/api/parse-url', authenticateToken, async (req, res) => {
+  try {
+    const { url } = req.body;
+
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ error: '请提供有效的URL' });
+    }
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).json({ error: 'URL格式无效' });
+    }
+
+    const isWechat = isWechatArticle(url);
+
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    };
+
+    if (isWechat) {
+      headers['Referer'] = 'https://mp.weixin.qq.com/';
+    }
+
+    const response = await fetch(url, { headers, redirect: 'follow' });
+
+    if (!response.ok) {
+      return res.status(502).json({ error: `无法获取页面内容: ${response.status}` });
+    }
+
+    const html = await response.text();
+    const { document } = parseHTML(html);
+
+    if (isWechat) {
+      preprocessWechatArticle(document);
+    }
+
+    const reader = new Readability(document.cloneNode(true));
+    let article = reader.parse();
+
+    if (!article && isWechat) {
+      const wechatContent = extractWechatContent(document);
+      if (wechatContent) {
+        article = {
+          title: wechatContent.title,
+          content: wechatContent.content,
+          textContent: '',
+          length: wechatContent.content.length,
+          excerpt: '',
+          byline: '',
+          dir: '',
+          siteName: '微信公众号',
+          lang: 'zh-CN',
+          publishedTime: null,
+        };
+      }
+    }
+
+    if (!article) {
+      return res.status(422).json({ error: '无法解析页面内容，该页面可能不是文章类型' });
+    }
+
+    const turndownService = new TurndownService({
+      headingStyle: 'atx',
+      codeBlockStyle: 'fenced',
+      bulletListMarker: '-',
+    });
+
+    turndownService.addRule('removeEmptyLinks', {
+      filter: (node) => node.nodeName === 'A' && !node.textContent?.trim(),
+      replacement: () => '',
+    });
+
+    turndownService.addRule('wechatImages', {
+      filter: (node) => node.nodeName === 'IMG',
+      replacement: (_content, node) => {
+        const src = node.getAttribute('src') || node.getAttribute('data-src') || '';
+        const alt = node.getAttribute('alt') || '';
+        return src ? `![${alt}](${src})` : '';
+      },
+    });
+
+    const wrappedHtml = `<!DOCTYPE html><html><body>${article.content || ''}</body></html>`;
+    const { document: contentDoc } = parseHTML(wrappedHtml);
+    const markdown = turndownService.turndown(contentDoc.body);
+
+    const siteName = isWechat ? '微信公众号' : parsedUrl.hostname;
+    const fullMarkdown = `# ${article.title}\n\n> 来源: [${siteName}](${url})\n\n${markdown}`;
+
+    res.json({
+      success: true,
+      data: {
+        title: article.title,
+        content: fullMarkdown,
+        excerpt: article.excerpt,
+        siteName: article.siteName || siteName,
+        url: url,
+      },
+    });
+  } catch (error) {
+    console.error('Parse URL error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : '解析失败' });
+  }
+});
+
 // Forward chat requests to the AI provider
 app.post('/api/chat', authenticateToken, async (req, res) => {
   const startTime = Date.now();
