@@ -249,6 +249,17 @@ app.delete('/api/projects/:id/versions', async (req, res) => {
 // --- AI Proxy ---
 // Forward chat requests to the AI provider
 app.post('/api/chat', async (req, res) => {
+  const startTime = Date.now();
+  const debug = process.env.DEBUG === 'true';
+  if (debug) {
+    // Truncate body if it's too large to avoid log spam/performance issues
+    const bodyStr = JSON.stringify(req.body);
+    const logStr = bodyStr.length > 1000 ? bodyStr.substring(0, 1000) + '...' : bodyStr;
+    console.log('[AI Service] AI Chat Request Start:', logStr);
+  }else{
+    console.log('[AI Service] AI Chat Request Start.');
+  }
+
   try {
     // In a real implementation, you would use the AI provider SDK or fetch here
     // For now, we'll return a mock response or error if not configured
@@ -279,11 +290,17 @@ app.post('/api/chat', async (req, res) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      if (debug) {
+        console.error('[AI Service] AI Provider Error:', errorText);
+      }
       return res.status(response.status).json({ error: `AI Provider Error: ${errorText}` });
     }
 
     // Handle streaming response
     if (req.body.stream) {
+      if (debug) {
+        console.log('[AI Service] Starting stream response');
+      }
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
@@ -297,9 +314,21 @@ app.post('/api/chat', async (req, res) => {
         const chunk = decoder.decode(value, { stream: true });
         res.write(chunk);
       }
+
+      if (debug) {
+        const duration = Date.now() - startTime;
+        console.log(`[AI Service] Stream response completed. Duration: ${duration}ms`);
+      }
+
       res.end();
     } else {
       const data = await response.json();
+      if (debug) {
+        const duration = Date.now() - startTime;
+        console.log(`[AI Service] AI Response completed. (Duration: ${duration}ms):`, JSON.stringify(data));
+      } else {
+        console.log(`[AI Service] AI Response completed. Duration: ${duration}ms:`);
+      }
       // Adapt response format to what frontend expects
       const content = data.choices?.[0]?.message?.content || '';
       res.json({ content });

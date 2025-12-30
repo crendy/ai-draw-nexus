@@ -15,7 +15,8 @@ services:
     environment:
       - PORT=3000
       - DATA_DIR=/app/data
-      - DEBUG=true
+      - ai-draw-access-password=${ai-draw-access-password}
+      - DEBUG=false
       # AI Configuration
       - AI_API_KEY=${AI_API_KEY}
       - AI_BASE_URL=${AI_BASE_URL:-https://api.openai.com/v1}

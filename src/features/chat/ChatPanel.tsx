@@ -1,21 +1,36 @@
-import { useState, useRef, useEffect } from 'react'
-import { Send, ImagePlus, FileText, User, Bot, X, MessageSquarePlus, Loader2, CheckCircle2, Link, MoveRight, Copy, RotateCcw, ChevronLeft,ArrowLeftToLine } from 'lucide-react'
-import { Button, Loading } from '@/components/ui'
-import { useChatStore } from '@/stores/chatStore'
-import { useEditorStore, selectIsEmpty } from '@/stores/editorStore'
-import { useAIGenerate } from '@/hooks/useAIGenerate'
-import { useToast } from '@/hooks/useToast'
-import { aiService } from '@/services/aiService'
+import {useEffect, useRef, useState} from 'react'
 import {
-  validateImageFile,
-  validateDocumentFile,
+  ArrowLeftToLine,
+  Bot,
+  CheckCircle2,
+  Copy,
+  FileText,
+  ImagePlus,
+  Link,
+  Loader2,
+  MessageSquarePlus,
+  MoveRight,
+  RotateCcw,
+  Send,
+  User,
+  X
+} from 'lucide-react'
+import {Button, Loading} from '@/components/ui'
+import {useChatStore} from '@/stores/chatStore'
+import {selectIsEmpty, useEditorStore} from '@/stores/editorStore'
+import {useAIGenerate} from '@/hooks/useAIGenerate'
+import {useToast} from '@/hooks/useToast'
+import {aiService} from '@/services/aiService'
+import {
   fileToBase64,
   parseDocument,
   selectFiles,
-  SUPPORTED_IMAGE_TYPES,
   SUPPORTED_DOCUMENT_EXTENSIONS,
+  SUPPORTED_IMAGE_TYPES,
+  validateDocumentFile,
+  validateImageFile,
 } from '@/lib/fileUtils'
-import type { Attachment, ImageAttachment, DocumentAttachment, UrlAttachment } from '@/types'
+import type {Attachment, DocumentAttachment, ImageAttachment, UrlAttachment} from '@/types'
 
 type ChatPanelProps = {
   onCollapse?: () => void
@@ -257,7 +272,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
       case 'pending':
         return { text: '等待中...', icon: <Loader2 className="h-4 w-4 animate-spin" /> }
       case 'streaming':
-        return { text: '绘制中...', icon: <Loader2 className="h-4 w-4 animate-spin" /> }
+        return { text: 'AI 思考中...', icon: <Loader2 className="h-4 w-4 animate-spin" /> }
       case 'complete':
         return { text: '绘制完成', icon: <CheckCircle2 className="h-4 w-4 text-green-500" /> }
       case 'error':
@@ -383,9 +398,21 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                   )}
                   {/* AI消息使用状态板显示 */}
                   {msg.role === 'assistant' ? (
-                    <div className="flex items-center gap-2">
-                      {getStatusDisplay(msg.status).icon}
-                      <span className="text-sm">{getStatusDisplay(msg.status).text}</span>
+                    <div className="flex flex-col gap-2">
+                      {msg.status === 'streaming' && msg.content && (
+                        <div className="text-xs text-muted-foreground border-l-2 border-primary/20 pl-2 py-1 mb-1 max-h-32 overflow-y-auto">
+                          {msg.content.split('\n').slice(-3).join('\n')}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {getStatusDisplay(msg.status).icon}
+                        <span className="text-sm">{getStatusDisplay(msg.status).text}</span>
+                      </div>
+                      {msg.status === 'complete' && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {msg.content}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>

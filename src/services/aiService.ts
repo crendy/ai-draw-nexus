@@ -97,7 +97,10 @@ export const aiService = {
     const startTime = Date.now()
     const debug = (window as any)._ENV_?.DEBUG
     if (debug) {
-      console.log('[AI Service] Request Start:', JSON.stringify({ messages }, null, 2))
+      // Truncate messages if too large
+      const msgStr = JSON.stringify({ messages });
+      const logStr = msgStr.length > 200 ? msgStr.substring(0, 200) + '...' : msgStr;
+      console.log('[AI Service] Request Start:', logStr)
     } else {
       console.log('[AI Service] Request Start')
     }
@@ -125,7 +128,10 @@ export const aiService = {
 
       const duration = Date.now() - startTime
       if (debug) {
-        console.log(`[AI Service] Request End. Duration: ${duration}ms`, JSON.stringify({ content }, null, 2))
+        // Truncate content if too large
+        const contentStr = JSON.stringify({ content });
+        const logStr = contentStr.length > 200 ? contentStr.substring(0, 200) + '...' : contentStr;
+        console.log(`[AI Service] Request End. Duration: ${duration}ms`, logStr)
       } else {
         console.log(`[AI Service] Request End. Duration: ${duration}ms`)
       }
@@ -153,7 +159,10 @@ export const aiService = {
     const startTime = Date.now()
     const debug = (window as any)._ENV_?.DEBUG
     if (debug) {
-      console.log('[AI Service] Stream Request Start:', JSON.stringify({ messages }, null, 2))
+      // Truncate messages if too large
+      const msgStr = JSON.stringify({ messages });
+      const logStr = msgStr.length > 200 ? msgStr.substring(0, 200) + '...' : msgStr;
+      console.log('[AI Service] Stream Request Start:', logStr)
     } else {
       console.log('[AI Service] Stream Request Start')
     }
@@ -223,7 +232,10 @@ export const aiService = {
 
       const duration = Date.now() - startTime
       if (debug) {
-        console.log(`[AI Service] Stream Request End. Duration: ${duration}ms`, JSON.stringify({ fullContent }, null, 2))
+        // Truncate content if too large
+        const contentStr = JSON.stringify({ fullContent });
+        const logStr = contentStr.length > 200 ? contentStr.substring(0, 200) + '...' : contentStr;
+        console.log(`[AI Service] Stream Request End. Duration: ${duration}ms`, logStr)
       } else {
         console.log(`[AI Service] Stream Request End. Duration: ${duration}ms`)
       }

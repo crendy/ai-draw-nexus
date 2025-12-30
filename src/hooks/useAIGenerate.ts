@@ -133,6 +133,7 @@ export function useAIGenerate() {
 
     setStreaming(true)
     setLoading(true)
+    const startTime = Date.now()
 
     try {
       let finalCode: string
@@ -199,8 +200,9 @@ export function useAIGenerate() {
       setContentFromVersion(finalCode)
 
       // Update assistant message
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
       updateMessage(assistantMsgId, {
-        content: 'Diagram generated successfully.',
+        content: `Diagram generated successfully. (${duration}s)`,
         status: 'complete',
       })
 
@@ -294,6 +296,7 @@ export function useAIGenerate() {
 
     setStreaming(true)
     setLoading(true)
+    const startTime = Date.now()
 
     try {
       // Ensure payload panel stays in-sync with what we resend
@@ -336,8 +339,9 @@ export function useAIGenerate() {
 
       setContentFromVersion(finalCode)
 
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
       updateMessage(assistantMsgId, {
-        content: 'Diagram generated successfully.',
+        content: `Diagram generated successfully. (${duration}s)`,
         status: 'complete',
       })
 
