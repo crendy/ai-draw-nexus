@@ -10,11 +10,8 @@ if (env?.DEBUG) {
   console.log('[App] Debug mode enabled')
 }
 
-const root = document.getElementById('root')
-if (root) {
-  createRoot(root).render(
+createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
-    </StrictMode> as React.ReactNode,
-  )
-}
+        <App />
+    </StrictMode>,
+)
