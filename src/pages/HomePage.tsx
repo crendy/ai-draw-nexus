@@ -1,23 +1,23 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Sparkles, Paperclip, ChevronDown, Plus, Send, Link, X, MoveRight } from 'lucide-react'
-import { Button, Loading } from '@/components/ui'
-import { AppSidebar, AppHeader, CreateProjectDialog } from '@/components/layout'
-import { ENGINES, QUICK_ACTIONS } from '@/constants'
-import { formatDate } from '@/lib/utils'
-import type { EngineType, Project, UrlAttachment, Attachment, ImageAttachment, DocumentAttachment } from '@/types'
-import { ProjectRepository } from '@/services/projectRepository'
-import { useChatStore } from '@/stores/chatStore'
-import { useAuthStore } from '@/stores/authStore'
-import { aiService } from '@/services/aiService'
-import { useToast } from '@/hooks/useToast'
+import {useEffect, useRef, useState} from 'react'
+import {useNavigate} from 'react-router-dom'
+import {ChevronDown, Link, MoveRight, Paperclip, Plus, Send, Sparkles, X} from 'lucide-react'
+import {Button, Loading} from '@/components/ui'
+import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
+import {ENGINES, QUICK_ACTIONS} from '@/constants'
+import {formatDate} from '@/lib/utils'
+import type {Attachment, DocumentAttachment, EngineType, ImageAttachment, Project, UrlAttachment} from '@/types'
+import {ProjectRepository} from '@/services/projectRepository'
+import {useChatStore} from '@/stores/chatStore'
+import {useAuthStore} from '@/stores/authStore'
+import {aiService} from '@/services/aiService'
+import {useToast} from '@/hooks/useToast'
 import {
   fileToBase64,
   parseDocument,
-  validateImageFile,
-  validateDocumentFile,
-  SUPPORTED_IMAGE_TYPES,
   SUPPORTED_DOCUMENT_EXTENSIONS,
+  SUPPORTED_IMAGE_TYPES,
+  validateDocumentFile,
+  validateImageFile,
 } from '@/lib/fileUtils'
 
 export function HomePage() {

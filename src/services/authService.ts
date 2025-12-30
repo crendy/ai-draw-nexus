@@ -39,7 +39,7 @@ export const authService = {
     useAuthStore.getState().logout()
   },
 
-  getAuthHeader() {
+  getAuthHeader(): Record<string, string> {
     const token = useAuthStore.getState().token
     return token ? { Authorization: `Bearer ${token}` } : {}
   }
