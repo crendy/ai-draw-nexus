@@ -241,9 +241,9 @@ app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
   const safeUsers = users.map(({ password, accessPassword, ...u }) => {
     const safeUser = { ...u, role: u.role || 'user', hasAccessPassword: !!accessPassword };
     // Mask API Key if it exists
-    if (safeUser.aiConfig && safeUser.aiConfig.apiKey) {
-      safeUser.aiConfig.apiKey = safeUser.aiConfig.apiKey.substring(0, 3) + '******' + safeUser.aiConfig.apiKey.slice(-4);
-    }
+    // if (safeUser.aiConfig && safeUser.aiConfig.apiKey) {
+    //   safeUser.aiConfig.apiKey = safeUser.aiConfig.apiKey.substring(0, 3) + '******' + safeUser.aiConfig.apiKey.slice(-4);
+    // }
     return safeUser;
   });
   res.json(safeUsers);
@@ -270,12 +270,12 @@ app.put('/api/admin/users/:id/ai-config', authenticateToken, isAdmin, async (req
   };
 
   // Handle API Key masking logic
-  if (newConfig.apiKey && currentConfig.apiKey) {
-    const isMasked = newConfig.apiKey.includes('******');
-    if (isMasked) {
-      newConfig.apiKey = currentConfig.apiKey;
-    }
-  }
+  // if (newConfig.apiKey && currentConfig.apiKey) {
+  //   const isMasked = newConfig.apiKey.includes('******');
+  //   if (isMasked) {
+  //     newConfig.apiKey = currentConfig.apiKey;
+  //   }
+  // }
 
   users[index] = { ...user, aiConfig: newConfig };
   await saveUsers(users);
@@ -359,9 +359,9 @@ app.get('/api/admin/settings', authenticateToken, isAdmin, async (req, res) => {
   const safeSettings = JSON.parse(JSON.stringify(settings));
 
   // Mask API Key if it exists
-  if (safeSettings.ai && safeSettings.ai.apiKey) {
-    safeSettings.ai.apiKey = safeSettings.ai.apiKey.substring(0, 3) + '******' + safeSettings.ai.apiKey.slice(-4);
-  }
+  // if (safeSettings.ai && safeSettings.ai.apiKey) {
+  //   safeSettings.ai.apiKey = safeSettings.ai.apiKey.substring(0, 3) + '******' + safeSettings.ai.apiKey.slice(-4);
+  // }
 
   res.json(safeSettings);
 });
@@ -373,12 +373,12 @@ app.put('/api/admin/settings', authenticateToken, isAdmin, async (req, res) => {
   // Handle API Key masking logic
   // If the incoming key looks like a mask (starts with sk-*** or similar and has stars),
   // and we have an existing key, assume it wasn't changed.
-  if (newSettings.ai && newSettings.ai.apiKey && currentSettings.ai && currentSettings.ai.apiKey) {
-    const isMasked = newSettings.ai.apiKey.includes('******');
-    if (isMasked) {
-      newSettings.ai.apiKey = currentSettings.ai.apiKey;
-    }
-  }
+  // if (newSettings.ai && newSettings.ai.apiKey && currentSettings.ai && currentSettings.ai.apiKey) {
+  //   const isMasked = newSettings.ai.apiKey.includes('******');
+  //   if (isMasked) {
+  //     newSettings.ai.apiKey = currentSettings.ai.apiKey;
+  //   }
+  // }
 
   const merged = { ...currentSettings, ...newSettings };
   await saveSettings(merged);
@@ -473,9 +473,9 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   const { password, accessPassword, ...safeUser } = user;
 
   // Mask API Key if it exists
-  if (safeUser.aiConfig && safeUser.aiConfig.apiKey) {
-    safeUser.aiConfig.apiKey = safeUser.aiConfig.apiKey.substring(0, 3) + '******' + safeUser.aiConfig.apiKey.slice(-4);
-  }
+  // if (safeUser.aiConfig && safeUser.aiConfig.apiKey) {
+  //   safeUser.aiConfig.apiKey = safeUser.aiConfig.apiKey.substring(0, 3) + '******' + safeUser.aiConfig.apiKey.slice(-4);
+  // }
 
   res.json(safeUser);
 });
@@ -502,12 +502,12 @@ app.put('/api/auth/profile/ai-config', authenticateToken, async (req, res) => {
   };
 
   // Handle API Key masking logic
-  if (newConfig.apiKey && currentConfig.apiKey) {
-    const isMasked = newConfig.apiKey.includes('******');
-    if (isMasked) {
-      newConfig.apiKey = currentConfig.apiKey;
-    }
-  }
+  // if (newConfig.apiKey && currentConfig.apiKey) {
+  //   const isMasked = newConfig.apiKey.includes('******');
+  //   if (isMasked) {
+  //     newConfig.apiKey = currentConfig.apiKey;
+  //   }
+  // }
 
   users[index] = { ...user, aiConfig: newConfig };
   await saveUsers(users);
