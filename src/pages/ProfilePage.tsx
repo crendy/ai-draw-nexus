@@ -4,7 +4,7 @@ import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, 
 import {quotaService} from '@/services/quotaService'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Eye, EyeOff, MessageCircle, Settings, User} from 'lucide-react'
+import {Eye, EyeOff, KeyRound, MessageCircle, Server, Settings, Ticket, Trash2, User, Users} from 'lucide-react'
 import {Link} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
 
@@ -17,6 +17,7 @@ export function ProfilePage() {
   const { success, error: showError } = useToast()
   const user = useAuthStore((state) => state.user)
   const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false)
+  const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0)
 
   useEffect(() => {
     // 加载配额信息
@@ -25,21 +26,6 @@ export function ProfilePage() {
     // 加载已保存的密码
     setPassword(quotaService.getAccessPassword())
   }, [])
-
-  const handleSavePassword = () => {
-    if (!password.trim()) {
-      showError('请输入访问密码')
-      return
-    }
-    quotaService.setAccessPassword(password.trim())
-    success('访问密码已保存')
-  }
-
-  const handleResetPassword = () => {
-    quotaService.clearAccessPassword()
-    setPassword('')
-    success('访问密码已清除')
-  }
 
   const handlePasswordChange = async (current: string, newPass: string) => {
     try {
@@ -59,7 +45,7 @@ export function ProfilePage() {
       <main className="flex flex-1 flex-col">
         <AppHeader />
         <div className="flex flex-1 items-start justify-center px-8 pt-12">
-          <div className="w-full max-w-3xl rounded-xl border border-border bg-surface shadow-sm">
+          <div className="w-full max-w-5xl rounded-xl border border-border bg-surface shadow-sm">
             <div className="flex min-h-[500px]">
               {/* 左侧 Tab */}
               <div className="w-48 border-r border-border p-4">
@@ -73,8 +59,34 @@ export function ProfilePage() {
                     }`}
                   >
                     <User className="h-4 w-4" />
-                    <span>用户信息</span>
+                    <span>个人信息</span>
                   </button>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => setActiveTab('users')}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        activeTab === 'users'
+                          ? 'bg-primary text-surface'
+                          : 'text-muted hover:bg-background hover:text-primary'
+                      }`}
+                    >
+                      <Users className="h-4 w-4" />
+                      <span>用户管理</span>
+                    </button>
+                  )}
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => setActiveTab('global-llm')}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        activeTab === 'global-llm'
+                          ? 'bg-primary text-surface'
+                          : 'text-muted hover:bg-background hover:text-primary'
+                      }`}
+                    >
+                      <Server className="h-4 w-4" />
+                      <span>全局LLM模型</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setActiveTab('settings')}
                     className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
@@ -84,7 +96,7 @@ export function ProfilePage() {
                     }`}
                   >
                     <Settings className="h-4 w-4" />
-                    <span>AI服务设置</span>
+                    <span>用户LLM模型</span>
                   </button>
                 </nav>
               </div>
@@ -108,9 +120,23 @@ export function ProfilePage() {
                   </>
                 )}
 
+                {activeTab === 'users' && user?.role === 'admin' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">用户管理</h2>
+                    <UserManagement />
+                  </>
+                )}
+
+                {activeTab === 'global-llm' && user?.role === 'admin' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">全局 LLM 配置</h2>
+                    <GlobalLLMConfig />
+                  </>
+                )}
+
                 {activeTab === 'settings' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">AI服务设置</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">用户LLM模型设置</h2>
 
                     {/* 每日配额 */}
                     <QuotaSection
@@ -118,19 +144,19 @@ export function ProfilePage() {
                       quotaTotal={quotaTotal}
                       quotaPercentage={quotaPercentage}
                       hasPassword={hasPassword}
+                      refreshTrigger={configUpdateTrigger}
                     />
 
                     {/* 分隔线 */}
                     <div className="my-6 border-t border-border" />
 
                     {/* 访问密码 */}
-                    <PasswordSection
+                    <UserAIConfigSection
                       password={password}
                       setPassword={setPassword}
                       showPassword={showPassword}
                       setShowPassword={setShowPassword}
-                      onSave={handleSavePassword}
-                      onReset={handleResetPassword}
+                      onConfigSaved={() => setConfigUpdateTrigger(prev => prev + 1)}
                     />
                   </>
                 )}
@@ -155,9 +181,38 @@ interface QuotaSectionProps {
   quotaTotal: number
   quotaPercentage: number
   hasPassword: boolean
+  refreshTrigger?: number
 }
 
-function QuotaSection({ quotaUsed, quotaTotal, quotaPercentage, hasPassword }: QuotaSectionProps) {
+function QuotaSection({ quotaUsed, quotaTotal, quotaPercentage, hasPassword, refreshTrigger }: QuotaSectionProps) {
+  const [isUnlimited, setIsUnlimited] = useState(false)
+  const user = useAuthStore((state) => state.user)
+
+  useEffect(() => {
+    checkUnlimited()
+  }, [hasPassword, user, refreshTrigger])
+
+  const checkUnlimited = async () => {
+    // If has password, it's unlimited
+    if (hasPassword) {
+      setIsUnlimited(true)
+      return
+    }
+
+    // If user has custom AI config, it's unlimited
+    try {
+      const profile = await authService.getUserProfile()
+      if (profile.aiConfig && profile.aiConfig.useCustom) {
+        setIsUnlimited(true)
+        return
+      }
+    } catch (err) {
+      // Ignore
+    }
+
+    setIsUnlimited(false)
+  }
+
   return (
     <div>
       <h3 className="mb-3 text-sm font-medium text-primary">每日配额</h3>
@@ -166,15 +221,19 @@ function QuotaSection({ quotaUsed, quotaTotal, quotaPercentage, hasPassword }: Q
         <div className="h-2 w-full overflow-hidden rounded-full bg-background">
           <div
             className="h-full rounded-full bg-primary transition-all duration-300"
-            style={{ width: `${quotaPercentage}%` }}
+            style={{ width: isUnlimited ? '0%' : `${quotaPercentage}%` }}
           />
         </div>
         {/* 配额信息 */}
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <span className="text-muted">
-            已使用 <span className="font-medium text-primary">{quotaUsed}</span> / {quotaTotal} 次
+            {isUnlimited ? (
+              <span>已使用 <span className="font-medium text-primary">{quotaUsed}</span> 次</span>
+            ) : (
+              <span>已使用 <span className="font-medium text-primary">{quotaUsed}</span> / {quotaTotal} 次</span>
+            )}
           </span>
-          {hasPassword && (
+          {isUnlimited && (
             <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
               无限制
             </span>
@@ -185,62 +244,240 @@ function QuotaSection({ quotaUsed, quotaTotal, quotaPercentage, hasPassword }: Q
   )
 }
 
-interface PasswordSectionProps {
+interface UserAIConfigSectionProps {
   password: string
   setPassword: (value: string) => void
   showPassword: boolean
   setShowPassword: (value: boolean) => void
-  onSave: () => void
-  onReset: () => void
+  onConfigSaved?: () => void
 }
 
-function PasswordSection({
+function UserAIConfigSection({
   password,
   setPassword,
   showPassword,
   setShowPassword,
-  onSave,
-  onReset,
-}: PasswordSectionProps) {
+  onConfigSaved,
+}: UserAIConfigSectionProps) {
+  const [mode, setMode] = useState<'password' | 'custom'>('password')
+  const [provider, setProvider] = useState('openai')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [modelId, setModelId] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const { success, error: showError } = useToast()
+
+  useEffect(() => {
+    loadUserConfig()
+  }, [])
+
+  const loadUserConfig = async () => {
+    try {
+      const profile = await authService.getUserProfile()
+      if (profile.aiConfig) {
+        setMode(profile.aiConfig.useCustom ? 'custom' : 'password')
+        setProvider(profile.aiConfig.provider || 'openai')
+        setBaseUrl(profile.aiConfig.baseUrl || '')
+        setApiKey(profile.aiConfig.apiKey || '')
+        setModelId(profile.aiConfig.modelId || '')
+      }
+    } catch (err) {
+      // Ignore error if profile load fails
+    }
+  }
+
+  const handleSaveConfig = async () => {
+    setLoading(true)
+    try {
+      if (mode === 'password') {
+        // Validate password if provided
+        if (password.trim()) {
+          const result = await authService.validateAccessPassword(password.trim())
+          if (!result.valid) {
+            showError(result.error || '访问密码错误')
+            setLoading(false)
+            return
+          }
+          quotaService.setAccessPassword(password.trim())
+        } else {
+          // If empty, clear password
+          quotaService.clearAccessPassword()
+        }
+
+        // Update user config to use system default
+        await authService.updateUserAIConfig({
+          useCustom: false,
+          // Preserve existing custom config
+          provider,
+          baseUrl,
+          apiKey,
+          modelId
+        })
+        success('配置已保存')
+        onConfigSaved?.()
+      } else {
+        // Validate custom config
+        if (!baseUrl || !apiKey || !modelId) {
+          showError('请填写完整的配置信息')
+          setLoading(false)
+          return
+        }
+
+        const validation = await authService.validateAIConfig({
+          provider,
+          baseUrl,
+          apiKey,
+          modelId
+        })
+
+        if (!validation.valid) {
+          showError(validation.error || '配置验证失败，请检查参数')
+          setLoading(false)
+          return
+        }
+
+        // Save custom config
+        await authService.updateUserAIConfig({
+          useCustom: true,
+          provider,
+          baseUrl,
+          apiKey,
+          modelId
+        })
+        success('配置已保存')
+        onConfigSaved?.()
+      }
+    } catch (err) {
+      showError('保存配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div>
-      <h3 className="mb-3 text-sm font-medium text-primary">访问密码</h3>
-      <div className="space-y-3">
-        <div className="relative">
-          <Input
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="输入访问密码"
-            className="pr-10"
+      <h3 className="mb-3 text-sm font-medium text-primary">配置模式</h3>
+      <div className="mb-6 flex gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            name="ai-mode"
+            checked={mode === 'password'}
+            onChange={() => setMode('password')}
+            className="h-4 w-4 text-primary"
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
-          >
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        </div>
-        <p className="text-xs text-muted">
-          输入正确的访问密码后，可无限制使用 AI 功能，不消耗每日配额。
-        </p>
-        <Link
-          to="/about"
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-        >
-          <MessageCircle className="h-3 w-3" />
-          <span>进群可获得访问密码</span>
-        </Link>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={onSave}>
-            保存
-          </Button>
-          <Button size="sm" variant="outline" onClick={onReset}>
-            重置
-          </Button>
-        </div>
+          <span className="text-sm">使用系统默认（访问密码）</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            name="ai-mode"
+            checked={mode === 'custom'}
+            onChange={() => setMode('custom')}
+            className="h-4 w-4 text-primary"
+          />
+          <span className="text-sm">自定义模型</span>
+        </label>
       </div>
+
+      {mode === 'password' ? (
+        <div className="space-y-3">
+          <div className="relative">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="输入访问密码"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-muted">
+            输入正确的访问密码后，可无限制使用 AI 功能，不消耗每日配额。
+          </p>
+          <Link
+            to="/about"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <MessageCircle className="h-3 w-3" />
+            <span>进群可获得访问密码</span>
+          </Link>
+          <div className="flex gap-2 pt-2">
+            <Button size="sm" onClick={handleSaveConfig} disabled={loading}>
+              {loading ? '保存中...' : '保存配置'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4 rounded-lg border border-border p-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-muted">API类型</label>
+            <select
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="openai">OpenAI</option>
+              <option value="azure">Azure OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="custom">Custom (OpenAI Compatible)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-muted">API地址</label>
+            <Input
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="https://api.openai.com/v1"
+              className="rounded-xl"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-muted">API Key</label>
+            <div className="relative">
+              <Input
+                type={showKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="sk-..."
+                className="rounded-xl pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+              >
+                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-muted">模型 ID</label>
+            <Input
+              value={modelId}
+              onChange={(e) => setModelId(e.target.value)}
+              placeholder="gpt-3.5-turbo"
+              className="rounded-xl"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button size="sm" onClick={handleSaveConfig} disabled={loading}>
+              {loading ? '保存中...' : '保存配置'}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -354,5 +591,635 @@ function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDial
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+interface AppUser {
+  id: string
+  username: string
+  role?: string
+  hasAccessPassword?: boolean
+  aiConfig?: {
+    useCustom?: boolean
+    provider?: string
+    baseUrl?: string
+    apiKey?: string
+    modelId?: string
+  }
+}
+
+function UserManagement() {
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const { success, error: showError } = useToast()
+  const currentUser = useAuthStore((state) => state.user)
+  const [selectedUserForConfig, setSelectedUserForConfig] = useState<AppUser | null>(null)
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState<AppUser | null>(null)
+  const [selectedUserForAccessPassword, setSelectedUserForAccessPassword] = useState<AppUser | null>(null)
+
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      const data = await authService.getUsers()
+      setUsers(data)
+    } catch (err) {
+      showError('加载用户列表失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRoleChange = async (userId: string, newRole: 'user' | 'admin') => {
+    try {
+      await authService.updateUserRole(userId, newRole)
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+      success('角色更新成功')
+    } catch (err) {
+      showError('角色更新失败')
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('确定要删除该用户吗？此操作不可恢复。')) return
+
+    try {
+      await authService.deleteUser(userId)
+      setUsers(users.filter(u => u.id !== userId))
+      success('用户已删除')
+    } catch (err) {
+      showError('删除用户失败')
+    }
+  }
+
+  const handleConfigSave = async (userId: string, config: any) => {
+    try {
+      await authService.adminUpdateUserAIConfig(userId, config)
+      setUsers(users.map(u => u.id === userId ? { ...u, aiConfig: config } : u))
+      success('用户配置已更新')
+      setSelectedUserForConfig(null)
+    } catch (err) {
+      showError('更新配置失败')
+    }
+  }
+
+  const handlePasswordReset = async (userId: string, password: string) => {
+    try {
+      await authService.adminResetUserPassword(userId, password)
+      success('密码重置成功')
+      setSelectedUserForPassword(null)
+    } catch (err) {
+      showError('密码重置失败')
+    }
+  }
+
+  const handleAccessPasswordSave = async (userId: string, password: string) => {
+    try {
+      await authService.adminUpdateUserAccessPassword(userId, password)
+      setUsers(users.map(u => u.id === userId ? { ...u, hasAccessPassword: !!password } : u))
+      success('访问密码已更新')
+      setSelectedUserForAccessPassword(null)
+    } catch (err) {
+      showError('更新访问密码失败')
+    }
+  }
+
+  if (loading) return <div>加载中...</div>
+
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <div className="p-4">
+        <div className="space-y-4">
+          {users.map((user) => (
+            <div
+              key={user.id}
+              className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <User className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-medium">{user.username}</div>
+                  <div className="text-xs text-muted">ID: {user.id}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted">角色:</span>
+                  <select
+                    value={user.role || 'user'}
+                    onChange={(e) => handleRoleChange(user.id, e.target.value as 'user' | 'admin')}
+                    disabled={user.id === currentUser?.id}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="LLM 设置"
+                    onClick={() => setSelectedUserForConfig(user)}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="重置密码"
+                    onClick={() => setSelectedUserForPassword(user)}
+                  >
+                    <KeyRound className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title={user.hasAccessPassword ? "修改访问密码" : "设置访问密码"}
+                    className={user.hasAccessPassword ? "text-primary" : "text-muted-foreground"}
+                    onClick={() => setSelectedUserForAccessPassword(user)}
+                  >
+                    <Ticket className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => handleDeleteUser(user.id)}
+                    disabled={user.id === currentUser?.id}
+                    title={user.id === currentUser?.id ? '不能删除自己' : '删除用户'}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {selectedUserForConfig && (
+        <AdminUserAIConfigDialog
+          open={!!selectedUserForConfig}
+          onOpenChange={(open) => !open && setSelectedUserForConfig(null)}
+          user={selectedUserForConfig}
+          onSave={handleConfigSave}
+        />
+      )}
+
+      {selectedUserForPassword && (
+        <AdminResetPasswordDialog
+          open={!!selectedUserForPassword}
+          onOpenChange={(open) => !open && setSelectedUserForPassword(null)}
+          user={selectedUserForPassword}
+          onSave={handlePasswordReset}
+        />
+      )}
+
+      {selectedUserForAccessPassword && (
+        <AdminAccessPasswordDialog
+          open={!!selectedUserForAccessPassword}
+          onOpenChange={(open) => !open && setSelectedUserForAccessPassword(null)}
+          user={selectedUserForAccessPassword}
+          onSave={handleAccessPasswordSave}
+        />
+      )}
+    </div>
+  )
+}
+
+interface AdminUserAIConfigDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user: AppUser
+  onSave: (userId: string, config: any) => Promise<void>
+}
+
+function AdminUserAIConfigDialog({ open, onOpenChange, user, onSave }: AdminUserAIConfigDialogProps) {
+  const [mode, setMode] = useState<'password' | 'custom'>('password')
+  const [provider, setProvider] = useState('openai')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [modelId, setModelId] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (open && user.aiConfig) {
+      setMode(user.aiConfig.useCustom ? 'custom' : 'password')
+      setProvider(user.aiConfig.provider || 'openai')
+      setBaseUrl(user.aiConfig.baseUrl || '')
+      setApiKey(user.aiConfig.apiKey || '')
+      setModelId(user.aiConfig.modelId || '')
+    } else {
+      // Reset to defaults
+      setMode('password')
+      setProvider('openai')
+      setBaseUrl('')
+      setApiKey('')
+      setModelId('')
+    }
+  }, [open, user])
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await onSave(user.id, {
+        useCustom: mode === 'custom',
+        provider,
+        baseUrl,
+        apiKey,
+        modelId
+      })
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>用户 LLM 配置 - {user.username}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <div className="mb-6 flex gap-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="admin-ai-mode"
+                checked={mode === 'password'}
+                onChange={() => setMode('password')}
+                className="h-4 w-4 text-primary"
+              />
+              <span className="text-sm">使用系统默认</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="admin-ai-mode"
+                checked={mode === 'custom'}
+                onChange={() => setMode('custom')}
+                className="h-4 w-4 text-primary"
+              />
+              <span className="text-sm">自定义模型</span>
+            </label>
+          </div>
+
+          {mode === 'custom' && (
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">API类型</label>
+                <select
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value)}
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="openai">OpenAI</option>
+                  <option value="azure">Azure OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="custom">Custom (OpenAI Compatible)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">API地址</label>
+                <Input
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="https://api.openai.com/v1"
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">API Key</label>
+                <div className="relative">
+                  <Input
+                    type={showKey ? 'text' : 'password'}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="rounded-xl pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                  >
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">模型 ID</label>
+                <Input
+                  value={modelId}
+                  onChange={(e) => setModelId(e.target.value)}
+                  placeholder="gpt-3.5-turbo"
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+            取消
+          </Button>
+          <Button onClick={handleSave} disabled={loading} className="rounded-full">
+            {loading ? '保存中...' : '保存配置'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface AdminResetPasswordDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user: AppUser
+  onSave: (userId: string, password: string) => Promise<void>
+}
+
+function AdminResetPasswordDialog({ open, onOpenChange, user, onSave }: AdminResetPasswordDialogProps) {
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const { error: showError } = useToast()
+
+  useEffect(() => {
+    if (!open) setPassword('')
+  }, [open])
+
+  const handleSave = async () => {
+    if (password.length < 6) {
+      showError('密码长度不能少于6位')
+      return
+    }
+    setLoading(true)
+    try {
+      await onSave(user.id, password)
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>重置密码 - {user.username}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <div className="relative">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="输入新密码"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            重置后，用户需要使用新密码登录。
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+            取消
+          </Button>
+          <Button onClick={handleSave} disabled={loading} className="rounded-full">
+            {loading ? '重置中...' : '确认重置'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface AdminAccessPasswordDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user: AppUser
+  onSave: (userId: string, accessPassword: string) => Promise<void>
+}
+
+function AdminAccessPasswordDialog({ open, onOpenChange, user, onSave }: AdminAccessPasswordDialogProps) {
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const { error: showError } = useToast()
+
+  useEffect(() => {
+    if (!open) setPassword('')
+  }, [open])
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await onSave(user.id, password)
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>设置访问密码 - {user.username}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <div className="relative">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="输入访问密码（留空则清除）"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            设置后，用户需在 AI 设置中输入此密码以使用系统默认模型。
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+            取消
+          </Button>
+          <Button onClick={handleSave} disabled={loading} className="rounded-full">
+            {loading ? '保存中...' : '确认保存'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function GlobalLLMConfig() {
+  const [provider, setProvider] = useState('openai')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [modelId, setModelId] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const { success, error: showError } = useToast()
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      const settings = await authService.getSystemSettings()
+      if (settings.ai) {
+        setProvider(settings.ai.provider || 'openai')
+        setBaseUrl(settings.ai.baseUrl || '')
+        setApiKey(settings.ai.apiKey || '')
+        setModelId(settings.ai.modelId || '')
+      }
+    } catch (err) {
+      showError('加载配置失败')
+    }
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await authService.updateSystemSettings({
+        ai: {
+          provider,
+          baseUrl,
+          apiKey,
+          modelId
+        }
+      })
+      success('配置已保存')
+    } catch (err) {
+      showError('保存配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (!confirm('确定要重置配置吗？这将清除所有自定义设置。')) return
+    setLoading(true)
+    try {
+      await authService.updateSystemSettings({
+        ai: {}
+      })
+      setProvider('openai')
+      setBaseUrl('')
+      setApiKey('')
+      setModelId('')
+      success('配置已重置')
+    } catch (err) {
+      showError('重置配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted">API类型</label>
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="openai">OpenAI</option>
+            <option value="azure">Azure OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="custom">Custom (OpenAI Compatible)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted">API地址</label>
+          <Input
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://api.openai.com/v1"
+            className="rounded-xl"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted">API Key</label>
+          <div className="relative">
+            <Input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-..."
+              className="rounded-xl pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+            >
+              {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted">模型 ID</label>
+          <Input
+            value={modelId}
+            onChange={(e) => setModelId(e.target.value)}
+            placeholder="gpt-3.5-turbo"
+            className="rounded-xl"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
+        <p>配置全局 LLM API 后，所有用户默认都使用此配置，每日有10次限额。</p>
+        <p className="mt-1 text-amber-600 dark:text-amber-500">
+          注意：如果管理员为用户设置了访问密码，用户设置后，将无限制使用此LLM API。
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <Button onClick={handleSave} disabled={loading} className="rounded-full">
+          {loading ? '保存中...' : '保存'}
+        </Button>
+        <Button variant="outline" onClick={handleReset} disabled={loading} className="rounded-full">
+          重置
+        </Button>
+      </div>
+    </div>
   )
 }

@@ -1,17 +1,16 @@
 import {
-  Home,
-  User,
-  GitBranch,
-  Network,
-  Workflow,
+  CassetteTape,
   Database,
-  Users,
-  ShoppingCart,
   FolderOpen,
-  BookOpen,
-  CassetteTape
+  GitBranch,
+  Home,
+  Network,
+  Settings,
+  ShoppingCart,
+  Users,
+  Workflow
 } from 'lucide-react'
-import type { EngineType } from '@/types'
+import type {EngineType} from '@/types'
 
 export const ENGINES: { value: EngineType; label: string }[] = [
   { value: 'mermaid', label: 'Mermaid' },
@@ -22,7 +21,7 @@ export const ENGINES: { value: EngineType; label: string }[] = [
 export const NAV_ITEMS = [
   { icon: Home, label: '首页', path: '/' },
   { icon: FolderOpen, label: '项目管理', path: '/projects' },
-  { icon: User, label: '用户信息', path: '/profile' },
+  { icon: Settings, label: '系统设置', path: '/profile' },
   { icon: CassetteTape, label: '关于', path: '/about' },
 ]
 

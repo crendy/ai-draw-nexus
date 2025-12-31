@@ -49,6 +49,7 @@ try {
 const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
 const GROUPS_FILE = path.join(DATA_DIR, 'groups.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const VERSIONS_DIR = path.join(DATA_DIR, 'versions');
 
 fs.ensureDirSync(VERSIONS_DIR);
@@ -121,6 +122,42 @@ async function saveUsers(users) {
   await fs.writeJson(USERS_FILE, users, { spaces: 2 });
 }
 
+async function getSettings() {
+  try {
+    if (await fs.pathExists(SETTINGS_FILE)) {
+      return await fs.readJson(SETTINGS_FILE);
+    }
+    return {};
+  } catch (err) {
+    console.error('Error reading settings:', err);
+    return {};
+  }
+}
+
+async function saveSettings(settings) {
+  await fs.writeJson(SETTINGS_FILE, settings, { spaces: 2 });
+}
+
+async function initializeAdmin() {
+  const users = await getUsers();
+  const adminUser = users.find(u => u.username === 'admin');
+  if (!adminUser) {
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const newAdmin = {
+      id: uuidv4(),
+      username: 'admin',
+      password: hashedPassword,
+      role: 'admin',
+      createdAt: new Date().toISOString()
+    };
+    users.push(newAdmin);
+    await saveUsers(users);
+    console.log('Default admin user created: admin / admin123');
+  }
+}
+
+initializeAdmin().catch(console.error);
+
 async function getProjects() {
   try {
     if (await fs.pathExists(PROJECTS_FILE)) {
@@ -175,14 +212,178 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) return res.sendStatus(401);
+  if (!token) {
+    if (process.env.DEBUG === 'true') console.log('[Auth] No token provided');
+    return res.sendStatus(401);
+  }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) {
+      if (process.env.DEBUG === 'true') console.error('[Auth] Token verification failed:', err.message);
+      return res.sendStatus(403);
+    }
     req.user = user;
     next();
   });
 };
+
+const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Admin access required' });
+  }
+};
+
+// --- Admin Routes ---
+app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
+  const users = await getUsers();
+  const safeUsers = users.map(({ password, accessPassword, ...u }) => {
+    const safeUser = { ...u, role: u.role || 'user', hasAccessPassword: !!accessPassword };
+    // Mask API Key if it exists
+    if (safeUser.aiConfig && safeUser.aiConfig.apiKey) {
+      safeUser.aiConfig.apiKey = safeUser.aiConfig.apiKey.substring(0, 3) + '******' + safeUser.aiConfig.apiKey.slice(-4);
+    }
+    return safeUser;
+  });
+  res.json(safeUsers);
+});
+
+app.put('/api/admin/users/:id/ai-config', authenticateToken, isAdmin, async (req, res) => {
+  const { useCustom, provider, baseUrl, apiKey, modelId } = req.body;
+  const users = await getUsers();
+  const index = users.findIndex(u => u.id === req.params.id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const user = users[index];
+  const currentConfig = user.aiConfig || {};
+
+  const newConfig = {
+    useCustom,
+    provider,
+    baseUrl,
+    apiKey,
+    modelId
+  };
+
+  // Handle API Key masking logic
+  if (newConfig.apiKey && currentConfig.apiKey) {
+    const isMasked = newConfig.apiKey.includes('******');
+    if (isMasked) {
+      newConfig.apiKey = currentConfig.apiKey;
+    }
+  }
+
+  users[index] = { ...user, aiConfig: newConfig };
+  await saveUsers(users);
+
+  res.json(newConfig);
+});
+
+app.put('/api/admin/users/:id/password', authenticateToken, isAdmin, async (req, res) => {
+  const { password } = req.body;
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  const users = await getUsers();
+  const index = users.findIndex(u => u.id === req.params.id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  users[index] = { ...users[index], password: hashedPassword };
+  await saveUsers(users);
+
+  res.json({ message: 'Password reset successfully' });
+});
+
+app.put('/api/admin/users/:id/role', authenticateToken, isAdmin, async (req, res) => {
+  const { role } = req.body;
+  if (!['user', 'admin'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+  const users = await getUsers();
+  const index = users.findIndex(u => u.id === req.params.id);
+  if (index !== -1) {
+    users[index].role = role;
+    await saveUsers(users);
+    const { password, accessPassword, ...safeUser } = users[index];
+    res.json(safeUser);
+  } else {
+    res.status(404).json({ error: 'User not found' });
+  }
+});
+
+app.put('/api/admin/users/:id/access-password', authenticateToken, isAdmin, async (req, res) => {
+  const { accessPassword } = req.body;
+
+  const users = await getUsers();
+  const index = users.findIndex(u => u.id === req.params.id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  if (accessPassword) {
+    users[index] = { ...users[index], accessPassword };
+  } else {
+    const { accessPassword: _, ...rest } = users[index];
+    users[index] = rest;
+  }
+
+  await saveUsers(users);
+  res.json({ message: 'Access password updated' });
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, isAdmin, async (req, res) => {
+  if (req.params.id === req.user.id) {
+    return res.status(400).json({ error: 'Cannot delete yourself' });
+  }
+  const users = await getUsers();
+  const newUsers = users.filter(u => u.id !== req.params.id);
+  if (newUsers.length === users.length) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  await saveUsers(newUsers);
+  res.status(204).send();
+});
+
+app.get('/api/admin/settings', authenticateToken, isAdmin, async (req, res) => {
+  const settings = await getSettings();
+  const safeSettings = JSON.parse(JSON.stringify(settings));
+
+  // Mask API Key if it exists
+  if (safeSettings.ai && safeSettings.ai.apiKey) {
+    safeSettings.ai.apiKey = safeSettings.ai.apiKey.substring(0, 3) + '******' + safeSettings.ai.apiKey.slice(-4);
+  }
+
+  res.json(safeSettings);
+});
+
+app.put('/api/admin/settings', authenticateToken, isAdmin, async (req, res) => {
+  const newSettings = req.body;
+  const currentSettings = await getSettings();
+
+  // Handle API Key masking logic
+  // If the incoming key looks like a mask (starts with sk-*** or similar and has stars),
+  // and we have an existing key, assume it wasn't changed.
+  if (newSettings.ai && newSettings.ai.apiKey && currentSettings.ai && currentSettings.ai.apiKey) {
+    const isMasked = newSettings.ai.apiKey.includes('******');
+    if (isMasked) {
+      newSettings.ai.apiKey = currentSettings.ai.apiKey;
+    }
+  }
+
+  const merged = { ...currentSettings, ...newSettings };
+  await saveSettings(merged);
+  res.json(merged);
+});
 
 // --- Auth Routes ---
 app.post('/api/auth/register', async (req, res) => {
@@ -197,7 +398,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const user = { id: uuidv4(), username, password: hashedPassword, createdAt: new Date().toISOString() };
+  const user = { id: uuidv4(), username, password: hashedPassword, role: 'user', createdAt: new Date().toISOString() };
 
   users.push(user);
   await saveUsers(users);
@@ -214,8 +415,8 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'Invalid credentials' });
   }
 
-  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, user: { id: user.id, username: user.username } });
+  const token = jwt.sign({ id: user.id, username: user.username, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '24h' });
+  res.json({ token, user: { id: user.id, username: user.username, role: user.role || 'user' } });
 });
 
 app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
@@ -243,6 +444,134 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
   await saveUsers(users);
 
   res.json({ message: 'Password updated successfully' });
+});
+
+app.post('/api/auth/validate-access-password', authenticateToken, async (req, res) => {
+  const { password } = req.body;
+
+  const users = await getUsers();
+  const user = users.find(u => u.id === req.user.id);
+
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (!user.accessPassword) {
+    return res.json({ valid: false, error: '未为您配置访问密码，请联系管理员' });
+  }
+
+  if (password === user.accessPassword) {
+    res.json({ valid: true });
+  } else {
+    res.json({ valid: false });
+  }
+});
+
+app.get('/api/auth/profile', authenticateToken, async (req, res) => {
+  const users = await getUsers();
+  const user = users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const { password, accessPassword, ...safeUser } = user;
+
+  // Mask API Key if it exists
+  if (safeUser.aiConfig && safeUser.aiConfig.apiKey) {
+    safeUser.aiConfig.apiKey = safeUser.aiConfig.apiKey.substring(0, 3) + '******' + safeUser.aiConfig.apiKey.slice(-4);
+  }
+
+  res.json(safeUser);
+});
+
+app.put('/api/auth/profile/ai-config', authenticateToken, async (req, res) => {
+  const { useCustom, provider, baseUrl, apiKey, modelId } = req.body;
+
+  const users = await getUsers();
+  const index = users.findIndex(u => u.id === req.user.id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const user = users[index];
+  const currentConfig = user.aiConfig || {};
+
+  const newConfig = {
+    useCustom,
+    provider,
+    baseUrl,
+    apiKey,
+    modelId
+  };
+
+  // Handle API Key masking logic
+  if (newConfig.apiKey && currentConfig.apiKey) {
+    const isMasked = newConfig.apiKey.includes('******');
+    if (isMasked) {
+      newConfig.apiKey = currentConfig.apiKey;
+    }
+  }
+
+  users[index] = { ...user, aiConfig: newConfig };
+  await saveUsers(users);
+
+  res.json(newConfig);
+});
+
+app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => {
+  let { provider, baseUrl, apiKey, modelId } = req.body;
+
+  if (!baseUrl || !apiKey || !modelId) {
+    return res.status(400).json({ valid: false, error: '请填写完整的配置信息' });
+  }
+
+  // Remove trailing slash
+  if (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
+
+  try {
+    // Try to send a minimal request to validate the config
+    // We'll use a simple chat completion request with max_tokens=1 to minimize cost
+    const url = `${baseUrl}/chat/completions`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 1
+      })
+    });
+
+    const contentType = response.headers.get('content-type');
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.json({ valid: false, error: `验证失败: ${response.status} - ${errorText}` });
+    }
+
+    if (contentType && !contentType.includes('application/json')) {
+       const text = await response.text();
+       // Truncate text if too long
+       const preview = text.substring(0, 100);
+       return res.json({ valid: false, error: `验证失败: API返回了非JSON格式数据 (${contentType})。请检查API地址是否正确。返回内容: ${preview}...` });
+    }
+
+    try {
+        const data = await response.json();
+        if (data.error) {
+            return res.json({ valid: false, error: `验证失败: ${data.error.message || JSON.stringify(data.error)}` });
+        }
+    } catch (e) {
+        return res.json({ valid: false, error: `验证失败: 无法解析响应JSON。请检查API地址。` });
+    }
+
+    res.json({ valid: true });
+  } catch (error) {
+    console.error('Validate AI Config Error:', error);
+    res.json({ valid: false, error: `验证失败: ${error.message}` });
+  }
 });
 
 // --- Protected API Routes ---
@@ -572,12 +901,31 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     // or forward to an external service.
 
     // Check if we have API keys in environment variables
-    const apiKey = process.env.AI_API_KEY;
-    const apiBaseUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1';
-    const modelId = process.env.AI_MODEL_ID || 'gpt-3.5-turbo';
+    // First check user specific config
+    const users = await getUsers();
+    const user = users.find(u => u.id === req.user.id);
+
+    let apiKey, apiBaseUrl, modelId;
+
+    if (user && user.aiConfig && user.aiConfig.useCustom) {
+      // Use user custom config
+      apiKey = user.aiConfig.apiKey;
+      apiBaseUrl = user.aiConfig.baseUrl;
+      modelId = user.aiConfig.modelId;
+      if (debug) console.log('[AI Service] Using user custom configuration');
+    } else {
+      // Use system global config
+      const settings = await getSettings();
+      const aiConfig = settings.ai || {};
+
+      apiKey = aiConfig.apiKey || process.env.AI_API_KEY;
+      apiBaseUrl = aiConfig.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1';
+      modelId = aiConfig.modelId || process.env.AI_MODEL_ID || 'gpt-3.5-turbo';
+      if (debug) console.log('[AI Service] Using system global configuration');
+    }
 
     if (!apiKey) {
-      return res.status(500).json({ error: 'AI_API_KEY not configured on server' });
+      return res.status(500).json({ error: 'AI_API_KEY not configured' });
     }
 
     const response = await fetch(`${apiBaseUrl}/chat/completions`, {
@@ -598,7 +946,8 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       if (debug) {
         console.error('[AI Service] AI Provider Error:', errorText);
       }
-      return res.status(response.status).json({ error: `AI Provider Error: ${errorText}` });
+      // Use 502 Bad Gateway to indicate upstream error, preventing frontend from treating it as auth failure (401/403)
+      return res.status(502).json({ error: `AI Provider Error: ${errorText}` });
     }
 
     // Handle streaming response
