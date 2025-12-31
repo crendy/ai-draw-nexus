@@ -1005,9 +1005,19 @@ if (fs.existsSync(distPath)) {
     if (req.method === 'GET' && !req.path.startsWith('/api')) {
       try {
         let html = await fs.readFile(path.join(distPath, 'index.html'), 'utf-8');
+
+        // Read settings to get system name
+        const settings = await getSettings();
+        const systemName = settings.system?.name || 'AI Draw Nexus';
+        const showAbout = settings.system?.showAbout !== false; // Default true
+
         // Inject environment variables
-        const envScript = `<script>window._ENV_ = { DEBUG: ${process.env.DEBUG === 'true'} };</script>`;
+        const envScript = `<script>window._ENV_ = { DEBUG: ${process.env.DEBUG === 'true'}, SYSTEM_NAME: "${systemName}", SHOW_ABOUT: ${showAbout} };</script>`;
         html = html.replace('</head>', `${envScript}</head>`);
+
+        // Update title
+        html = html.replace(/<title>.*?<\/title>/, `<title>${systemName}</title>`);
+
         res.send(html);
       } catch (err) {
         console.error('Error serving index.html:', err);

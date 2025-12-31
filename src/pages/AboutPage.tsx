@@ -18,46 +18,46 @@ export function AboutPage() {
               <p className="text-sm leading-relaxed text-muted">
                 本项目的代码已全部开源至{' '}
                 <a
-                  href="https://github.com/liujuntao123/ai-draw-nexus"
+                  href="https://github.com/crendy/ai-draw-nexus"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary underline hover:text-primary/80"
                 >
-                  liujuntao123/ai-draw-nexus
+                  crendy/ai-draw-nexus
                 </a>
                 。
               </p>
             </section>
 
             {/* 联系作者 */}
-            <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-medium text-primary">联系作者</h2>
-              <p className="mb-4 text-sm leading-relaxed text-muted">
-                如果你有任何的建议和想法，欢迎联系作者。
-              </p>
-              <div className="flex justify-center">
-                <img
-                  src="/contact.png"
-                  alt="联系作者"
-                  className="max-w-xs rounded-lg border border-border"
-                />
-              </div>
-            </section>
+            {/*<section className="rounded-xl border border-border bg-surface p-6 shadow-sm">*/}
+            {/*  <h2 className="mb-4 text-lg font-medium text-primary">联系作者</h2>*/}
+            {/*  <p className="mb-4 text-sm leading-relaxed text-muted">*/}
+            {/*    如果你有任何的建议和想法，欢迎联系作者。*/}
+            {/*  </p>*/}
+            {/*  <div className="flex justify-center">*/}
+            {/*    <img*/}
+            {/*      src="/contact.png"*/}
+            {/*      alt="联系作者"*/}
+            {/*      className="max-w-xs rounded-lg border border-border"*/}
+            {/*    />*/}
+            {/*  </div>*/}
+            {/*</section>*/}
 
-            {/* 赞助支持 */}
-            <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-medium text-primary">赞助支持</h2>
-              <p className="mb-4 text-sm leading-relaxed text-muted">
-                如果你认为本项目对你有帮助，欢迎请作者喝奶茶。
-              </p>
-              <div className="flex justify-center">
-                <img
-                  src="/donate.png"
-                  alt="请作者喝奶茶"
-                  className="max-w-xs rounded-lg border border-border"
-                />
-              </div>
-            </section>
+            {/*/!* 赞助支持 *!/*/}
+            {/*<section className="rounded-xl border border-border bg-surface p-6 shadow-sm">*/}
+            {/*  <h2 className="mb-4 text-lg font-medium text-primary">赞助支持</h2>*/}
+            {/*  <p className="mb-4 text-sm leading-relaxed text-muted">*/}
+            {/*    如果你认为本项目对你有帮助，欢迎请作者喝奶茶。*/}
+            {/*  </p>*/}
+            {/*  <div className="flex justify-center">*/}
+            {/*    <img*/}
+            {/*      src="/donate.png"*/}
+            {/*      alt="请作者喝奶茶"*/}
+            {/*      className="max-w-xs rounded-lg border border-border"*/}
+            {/*    />*/}
+            {/*  </div>*/}
+            {/*</section>*/}
           </div>
         </div>
       </main>

@@ -4,9 +4,10 @@ import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, 
 import {quotaService} from '@/services/quotaService'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Eye, EyeOff, KeyRound, MessageCircle, Server, Settings, Trash2, User, Users} from 'lucide-react'
+import {Eye, EyeOff, KeyRound, MessageCircle, Server, Settings, Settings2, Sparkles, Trash2, User, Users} from 'lucide-react'
 import {Link} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
+import {useSystemStore} from '@/stores/systemStore'
 
 export function ProfilePage() {
   const [activeTab, setActiveTab] = useState('profile')
@@ -74,6 +75,17 @@ export function ProfilePage() {
                       <span>用户管理</span>
                     </button>
                   )}
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'settings'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    <span>用户LLM模型</span>
+                  </button>
                   {user?.role === 'admin' && (
                     <button
                       onClick={() => setActiveTab('global-llm')}
@@ -87,17 +99,19 @@ export function ProfilePage() {
                       <span>全局LLM模型</span>
                     </button>
                   )}
-                  <button
-                    onClick={() => setActiveTab('settings')}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                      activeTab === 'settings'
-                        ? 'bg-primary text-surface'
-                        : 'text-muted hover:bg-background hover:text-primary'
-                    }`}
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>用户LLM模型</span>
-                  </button>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => setActiveTab('system-settings')}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        activeTab === 'system-settings'
+                          ? 'bg-primary text-surface'
+                          : 'text-muted hover:bg-background hover:text-primary'
+                      }`}
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span>系统设置</span>
+                    </button>
+                  )}
                 </nav>
               </div>
 
@@ -127,13 +141,6 @@ export function ProfilePage() {
                   </>
                 )}
 
-                {activeTab === 'global-llm' && user?.role === 'admin' && (
-                  <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">全局 LLM 配置</h2>
-                    <GlobalLLMConfig />
-                  </>
-                )}
-
                 {activeTab === 'settings' && (
                   <>
                     <h2 className="mb-6 text-lg font-medium text-primary">用户LLM模型设置</h2>
@@ -158,6 +165,20 @@ export function ProfilePage() {
                       setShowPassword={setShowPassword}
                       onConfigSaved={() => setConfigUpdateTrigger(prev => prev + 1)}
                     />
+                  </>
+                )}
+
+                {activeTab === 'global-llm' && user?.role === 'admin' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">全局 LLM 配置</h2>
+                    <GlobalLLMConfig />
+                  </>
+                )}
+
+                {activeTab === 'system-settings' && user?.role === 'admin' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">系统设置</h2>
+                    <SystemSettingsConfig />
                   </>
                 )}
               </div>
@@ -702,7 +723,14 @@ function UserManagement() {
                   <User className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="font-medium">{user.username}</div>
+                  <div className="font-medium">
+                    {user.username}
+                    {user.id === currentUser?.id && (
+                      <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                        登录用户
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-muted">ID: {user.id}</div>
                 </div>
               </div>
@@ -1207,9 +1235,7 @@ function GlobalLLMConfig() {
 
       <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
         <p>配置全局 LLM API 后，所有用户默认都使用此配置，每日有10次限额。</p>
-        <p className="mt-1 text-amber-600 dark:text-amber-500">
-          注意：如果管理员为用户设置了访问密码，用户设置后，将无限制使用此LLM API。
-        </p>
+
       </div>
 
       <div className="flex gap-3">
@@ -1218,6 +1244,91 @@ function GlobalLLMConfig() {
         </Button>
         <Button variant="outline" onClick={handleReset} disabled={loading} className="rounded-full">
           重置
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function SystemSettingsConfig() {
+  const [systemName, setSystemName] = useState('')
+  const [showAbout, setShowAbout] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const { success, error: showError } = useToast()
+  const setGlobalSystemName = useSystemStore((state) => state.setSystemName)
+  const setGlobalShowAbout = useSystemStore((state) => state.setShowAbout)
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      const settings = await authService.getSystemSettings()
+      if (settings.system) {
+        setSystemName(settings.system.name || 'AI Draw Nexus')
+        setShowAbout(settings.system.showAbout !== false)
+      } else {
+        setSystemName('AI Draw Nexus')
+        setShowAbout(true)
+      }
+    } catch (err) {
+      showError('加载配置失败')
+    }
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await authService.updateSystemSettings({
+        system: {
+          name: systemName,
+          showAbout
+        }
+      })
+      setGlobalSystemName(systemName)
+      setGlobalShowAbout(showAbout)
+      document.title = systemName
+      success('配置已保存')
+    } catch (err) {
+      showError('保存配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted">系统名称</label>
+          <Input
+            value={systemName}
+            onChange={(e) => setSystemName(e.target.value)}
+            placeholder="AI Draw Nexus"
+            className="rounded-xl"
+          />
+          <p className="mt-2 text-xs text-muted">
+            设置系统的显示名称，将显示在浏览器标题、登录页和首页等位置。
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="showAbout"
+            checked={showAbout}
+            onChange={(e) => setShowAbout(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="showAbout" className="text-sm font-medium text-muted cursor-pointer">
+            显示"关于"菜单
+          </label>
+        </div>
+      </div>
+      <div className="flex gap-3">
+        <Button onClick={handleSave} disabled={loading} className="rounded-full">
+          {loading ? '保存中...' : '保存'}
         </Button>
       </div>
     </div>

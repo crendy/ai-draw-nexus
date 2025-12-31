@@ -3,6 +3,7 @@ import {Link, useNavigate} from 'react-router-dom'
 import {Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Input} from '@/components/ui'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
+import {useSystemStore} from '@/stores/systemStore'
 
 export function LoginPage() {
   const [username, setUsername] = useState('')
@@ -10,6 +11,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const { error: showError } = useToast()
+  const systemName = useSystemStore((state) => state.systemName)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,7 +32,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">登录 AI Draw Nexus</CardTitle>
+          <CardTitle className="text-2xl text-center">登录 {systemName}</CardTitle>
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">

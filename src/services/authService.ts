@@ -2,6 +2,19 @@ import {useAuthStore} from '@/stores/authStore'
 
 const API_BASE = '/api/auth'
 
+export interface SystemSettings {
+  ai?: {
+    provider?: string
+    baseUrl?: string
+    apiKey?: string
+    modelId?: string
+  }
+  system?: {
+    name?: string
+    showAbout?: boolean
+  }
+}
+
 export const authService = {
   async login(username: string, password: string) {
     const response = await fetch(`${API_BASE}/login`, {
@@ -94,7 +107,7 @@ export const authService = {
     }
   },
 
-  async getSystemSettings() {
+  async getSystemSettings(): Promise<SystemSettings> {
     const response = await fetch('/api/admin/settings', {
       headers: this.getAuthHeader()
     })
@@ -102,7 +115,7 @@ export const authService = {
     return await response.json()
   },
 
-  async updateSystemSettings(settings: any) {
+  async updateSystemSettings(settings: SystemSettings) {
     const response = await fetch('/api/admin/settings', {
       method: 'PUT',
       headers: {

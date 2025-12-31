@@ -9,6 +9,7 @@ import type {Attachment, DocumentAttachment, EngineType, ImageAttachment, Projec
 import {ProjectRepository} from '@/services/projectRepository'
 import {useChatStore} from '@/stores/chatStore'
 import {useAuthStore} from '@/stores/authStore'
+import {useSystemStore} from '@/stores/systemStore'
 import {aiService} from '@/services/aiService'
 import {useToast} from '@/hooks/useToast'
 import {
@@ -36,6 +37,7 @@ export function HomePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const setInitialPrompt = useChatStore((state) => state.setInitialPrompt)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const systemName = useSystemStore((state) => state.systemName)
   const { error: showError } = useToast()
 
   // 新建项目弹窗状态
@@ -252,7 +254,7 @@ export function HomePage() {
                 <Sparkles className="h-6 w-6 text-surface" />
               </div> */}
               <h1 className="text-3xl font-bold text-primary">
-                AI Draw Nexus 
+                {systemName}
               </h1>
             </div>
             <p className="text-muted">AI驱动的一站式绘图平台</p>
@@ -303,7 +305,7 @@ export function HomePage() {
 
               <textarea
                 ref={textareaRef}
-                placeholder="描述你想要绘制的图表，AI Draw Nexus 会帮你完成...（支持粘贴图片）"
+                placeholder={`描述你想要绘制的图表，${systemName} 会帮你完成...（支持粘贴图片）`}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={handleKeyDown}
