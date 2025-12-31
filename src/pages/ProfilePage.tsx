@@ -4,7 +4,7 @@ import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, 
 import {quotaService} from '@/services/quotaService'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Eye, EyeOff, KeyRound, MessageCircle, Server, Settings, Ticket, Trash2, User, Users} from 'lucide-react'
+import {Eye, EyeOff, KeyRound, MessageCircle, Server, Settings, Trash2, User, Users} from 'lucide-react'
 import {Link} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
 
@@ -709,12 +709,12 @@ function UserManagement() {
 
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted">角色:</span>
+                  <span className="text-xs text-muted">角色:</span>
                   <select
                     value={user.role || 'user'}
                     onChange={(e) => handleRoleChange(user.id, e.target.value as 'user' | 'admin')}
                     disabled={user.id === currentUser?.id}
-                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                    className="h-7 rounded-md border border-input bg-background px-2 text-xs"
                   >
                     <option value="user">普通用户</option>
                     <option value="admin">管理员</option>
@@ -723,39 +723,39 @@ function UserManagement() {
 
                 <div className="flex items-center gap-1">
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    title="LLM 设置"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
                     onClick={() => setSelectedUserForConfig(user)}
                   >
-                    <Settings className="h-4 w-4" />
+                    LLM设置
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-7 px-2 text-xs ${user.hasAccessPassword ? "text-primary border-primary/30 bg-primary/5" : "text-muted-foreground"}`}
+                    onClick={() => setSelectedUserForAccessPassword(user)}
+                  >
+                    {user.hasAccessPassword ? "修改访问密码" : "设置访问密码"}
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-7 w-7"
                     title="重置密码"
                     onClick={() => setSelectedUserForPassword(user)}
                   >
-                    <KeyRound className="h-4 w-4" />
+                    <KeyRound className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    title={user.hasAccessPassword ? "修改访问密码" : "设置访问密码"}
-                    className={user.hasAccessPassword ? "text-primary" : "text-muted-foreground"}
-                    onClick={() => setSelectedUserForAccessPassword(user)}
-                  >
-                    <Ticket className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => handleDeleteUser(user.id)}
                     disabled={user.id === currentUser?.id}
                     title={user.id === currentUser?.id ? '不能删除自己' : '删除用户'}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
