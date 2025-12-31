@@ -1,5 +1,5 @@
 # 项目基线版本
-[liujuntao123/ai-draw-nexus](https://github.com/liujuntao123/ai-draw-nexus)
+本项目基于[liujuntao123/ai-draw-nexus](https://github.com/liujuntao123/ai-draw-nexus)进行二开，主要是为了满足docker私有部署场景下使用，并扩展多用户使用场景
 
 
 # 修改内容
