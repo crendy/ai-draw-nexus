@@ -66,3 +66,4 @@ export {
   ToastClose,
   ToastAction,
 } from './Toast'
+export { Logo } from './Logo'

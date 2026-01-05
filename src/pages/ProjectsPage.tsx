@@ -15,8 +15,9 @@ import {
   DropdownMenuTrigger,
   Input,
   Loading,
+  Logo,
 } from '@/components/ui'
-import {AppHeader, AppSidebar, CreateProjectDialog, ImportProjectDialog} from '@/components/layout'
+import {AppSidebar, CreateProjectDialog, ImportProjectDialog} from '@/components/layout'
 import {formatDate} from '@/lib/utils'
 import type {Group, Project} from '@/types'
 import {ProjectRepository} from '@/services/projectRepository'
@@ -80,10 +81,8 @@ export function ProjectsPage() {
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const [projectsData, groupsData] = await Promise.all([
-        ProjectRepository.getAll(),
-        GroupRepository.getAll()
-      ])
+      const projectsData = await ProjectRepository.getAll()
+      const groupsData = await GroupRepository.getAll()
       setProjects(projectsData)
       setGroups(groupsData)
     } catch (error) {
@@ -225,154 +224,156 @@ export function ProjectsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background overflow-hidden">
       {/* Floating Sidebar Navigation */}
       <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
 
       {/* Main Content */}
-      <main className="flex flex-1 flex-col">
-        {/* Header */}
-        <AppHeader />
+      <main className="flex flex-1 pl-[72px] h-screen">
+        {/* Middle Column: Groups & Search */}
+        <div className="flex w-64 flex-col border-r border-border bg-surface/50">
+          {/* Header */}
+          <div className="flex h-14 items-center justify-between border-b border-border px-4">
+            <h2 className="font-semibold text-primary">项目管理</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setIsCreateGroupDialogOpen(true)}
+              title="新建分组"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
 
-        {/* Page Content */}
-        <div className="flex flex-1 overflow-hidden">
-          <div className="mx-auto flex w-full max-w-7xl gap-6 px-8 py-6">
+          {/* Search */}
+          <div className="p-4 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Input
+                placeholder="搜索项目..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 rounded-lg border-border bg-background pl-9 pr-4 text-sm focus:border-primary"
+              />
+            </div>
+          </div>
 
-            {/* Left Sidebar: Groups */}
-            <div className="w-64 flex-shrink-0 space-y-2">
-              <div className="mb-4 flex items-center justify-between px-2">
-                <h2 className="text-sm font-semibold text-muted-foreground">分组</h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => setIsCreateGroupDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+          {/* Groups List */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <button
+              onClick={() => setSelectedGroupId(null)}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                selectedGroupId === null
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted-foreground hover:bg-muted hover:text-primary'
+              }`}
+            >
+              <Folder className="h-4 w-4" />
+              全部项目
+              <span className="ml-auto text-xs opacity-60">{projects.length}</span>
+            </button>
 
-              <div className="space-y-1">
+            <button
+              onClick={() => setSelectedGroupId('uncategorized')}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                selectedGroupId === 'uncategorized'
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted-foreground hover:bg-muted hover:text-primary'
+              }`}
+            >
+              <FolderOpen className="h-4 w-4" />
+              未分组
+              <span className="ml-auto text-xs opacity-60">
+                {projects.filter(p => !p.groupId).length}
+              </span>
+            </button>
+
+            {groups.map(group => (
+              <div key={group.id} className="group/item relative">
                 <button
-                  onClick={() => setSelectedGroupId(null)}
+                  onClick={() => setSelectedGroupId(group.id)}
                   className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    selectedGroupId === null
+                    selectedGroupId === group.id
                       ? 'bg-primary/10 text-primary font-medium'
                       : 'text-muted-foreground hover:bg-muted hover:text-primary'
                   }`}
                 >
                   <Folder className="h-4 w-4" />
-                  全部项目
-                  <span className="ml-auto text-xs opacity-60">{projects.length}</span>
-                </button>
-
-                <button
-                  onClick={() => setSelectedGroupId('uncategorized')}
-                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    selectedGroupId === 'uncategorized'
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'text-muted-foreground hover:bg-muted hover:text-primary'
-                  }`}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  未分组
+                  <span className="truncate">{group.name}</span>
                   <span className="ml-auto text-xs opacity-60">
-                    {projects.filter(p => !p.groupId).length}
+                    {projects.filter(p => p.groupId === group.id).length}
                   </span>
                 </button>
 
-                {groups.map(group => (
-                  <div key={group.id} className="group/item relative">
-                    <button
-                      onClick={() => setSelectedGroupId(group.id)}
-                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        selectedGroupId === group.id
-                          ? 'bg-primary/10 text-primary font-medium'
-                          : 'text-muted-foreground hover:bg-muted hover:text-primary'
-                      }`}
-                    >
-                      <Folder className="h-4 w-4" />
-                      <span className="truncate">{group.name}</span>
-                      <span className="ml-auto text-xs opacity-60">
-                        {projects.filter(p => p.groupId === group.id).length}
-                      </span>
-                    </button>
-
-                    {/* Group Actions Dropdown */}
-                    <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover/item:opacity-100">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6">
-                            <MoreVertical className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setEditGroupTarget(group)
-                            setEditGroupName(group.name)
-                          }}>
-                            重命名
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600 focus:text-red-600"
-                            onClick={() => setDeleteGroupTarget(group)}
-                          >
-                            删除
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
+                {/* Group Actions Dropdown */}
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover/item:opacity-100">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <MoreVertical className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        setEditGroupTarget(group)
+                        setEditGroupName(group.name)
+                      }}>
+                        重命名
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600"
+                        onClick={() => setDeleteGroupTarget(group)}
+                      >
+                        删除
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Column: Projects Grid */}
+        <div className="flex flex-1 flex-col overflow-hidden bg-background">
+          {/* Header */}
+          <div className="flex h-14 items-center justify-between border-b border-border px-6">
+            <h1 className="text-lg font-semibold text-primary">
+              {selectedGroupId === null ? '全部项目' :
+               selectedGroupId === 'uncategorized' ? '未分组' :
+               groups.find(g => g.id === selectedGroupId)?.name || '项目列表'}
+            </h1>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsImportDialogOpen(true)}
+                className="rounded-full"
+              >
+                <Upload className="mr-2 h-3.5 w-3.5" />
+                导入
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setIsCreateDialogOpen(true)}
+                className="rounded-full bg-primary text-surface hover:bg-primary/90"
+              >
+                <Plus className="mr-2 h-3.5 w-3.5" />
+                新建
+              </Button>
             </div>
+          </div>
 
-            {/* Right Content: Projects Grid */}
-            <div className="flex-1 min-w-0">
-              {/* Page Title & Actions */}
-              <div className="mb-8 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <h1 className="text-2xl font-bold text-primary">
-                    {selectedGroupId === null ? '全部项目' :
-                     selectedGroupId === 'uncategorized' ? '未分组' :
-                     groups.find(g => g.id === selectedGroupId)?.name || '项目列表'}
-                  </h1>
-                  <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                    <Input
-                      placeholder="搜索项目..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-9 rounded-full border-border bg-surface pl-9 pr-4 text-sm focus:border-primary"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsImportDialogOpen(true)}
-                    className="rounded-full px-6"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    导入项目
-                  </Button>
-                  <Button
-                    onClick={() => setIsCreateDialogOpen(true)}
-                    className="rounded-full bg-primary px-6 text-surface hover:bg-primary/90"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    新建项目
-                  </Button>
-                </div>
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {isLoading ? (
+              <div className="flex h-full items-center justify-center">
+                <Loading size="lg" />
               </div>
-
-              {/* Projects Grid */}
-              {isLoading ? (
-                <div className="flex h-64 items-center justify-center">
-                  <Loading size="lg" />
-                </div>
-              ) : filteredProjects.length === 0 ? (
-                <div className="flex h-64 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface">
+            ) : filteredProjects.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center">
+                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface p-12">
                   <Sparkles className="mb-4 h-12 w-12 text-muted" />
                   <p className="mb-4 text-muted">
                     {searchQuery ? '未找到匹配的项目' : '暂无项目'}
@@ -386,105 +387,105 @@ export function ProjectsPage() {
                     </Button>
                   )}
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {/* New Project Card - Only show when not searching and viewing All or Uncategorized */}
-                  {!searchQuery && (selectedGroupId === null || selectedGroupId === 'uncategorized') && (
-                    <button
-                      onClick={() => setIsCreateDialogOpen(true)}
-                      className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface transition-all hover:border-primary hover:shadow-md"
-                      style={{ height: 'calc(8rem + 68px)' }}
-                    >
-                      <Plus className="mb-2 h-6 w-6 text-muted" />
-                      <span className="text-sm text-muted">新建项目</span>
-                    </button>
-                  )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                {/* New Project Card - Only show when not searching and viewing All or Uncategorized */}
+                {!searchQuery && (selectedGroupId === null || selectedGroupId === 'uncategorized') && (
+                  <button
+                    onClick={() => setIsCreateDialogOpen(true)}
+                    className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface transition-all hover:border-primary hover:shadow-md"
+                    style={{ height: 'calc(8rem + 68px)' }}
+                  >
+                    <Plus className="mb-2 h-6 w-6 text-muted" />
+                    <span className="text-sm text-muted">新建项目</span>
+                  </button>
+                )}
 
-                  {/* Project Cards */}
-                  {filteredProjects.map((project) => (
-                    <div
-                      key={project.id}
-                      className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-primary hover:shadow-md"
-                      onClick={() => navigate(`/editor/${project.id}`)}
-                    >
-                      {/* Action Buttons - 右上角 */}
-                      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 bg-surface/80 backdrop-blur-sm hover:bg-surface"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreVertical className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => {
+                {/* Project Cards */}
+                {filteredProjects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-primary hover:shadow-md"
+                    onClick={() => navigate(`/editor/${project.id}`)}
+                  >
+                    {/* Action Buttons - 右上角 */}
+                    <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 bg-surface/80 backdrop-blur-sm hover:bg-surface"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation()
+                            openRenameDialog(project)
+                          }}>
+                            重命名
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation()
+                            setMoveProjectTarget(project)
+                            setTargetGroupId(project.groupId || '')
+                          }}>
+                            移动到...
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={(e) => {
                               e.stopPropagation()
-                              openRenameDialog(project)
-                            }}>
-                              重命名
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => {
-                              e.stopPropagation()
-                              setMoveProjectTarget(project)
-                              setTargetGroupId(project.groupId || '')
-                            }}>
-                              移动到...
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-red-600 focus:text-red-600"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setDeleteTarget(project)
-                              }}
-                            >
-                              删除
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      {/* Thumbnail - 固定高度 */}
-                      <div className="flex h-32 items-center justify-center bg-background">
-                        {project.thumbnail ? (
-                          <img
-                            src={project.thumbnail}
-                            alt={project.title}
-                            className="h-full w-full object-contain"
-                          />
-                        ) : (
-                          <Sparkles className="h-8 w-8 text-muted" />
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div className="p-3">
-                        <div className="flex items-center gap-2">
-                          <h3 className="truncate text-sm font-medium text-primary">
-                            {project.title}
-                          </h3>
-                          <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                            project.engineType === 'excalidraw'
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                              : project.engineType === 'drawio'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                                : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                          }`}>
-                            {project.engineType.toUpperCase()}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted">
-                          更新于 {formatDate(project.updatedAt)}
-                        </p>
-                      </div>
+                              setDeleteTarget(project)
+                            }}
+                          >
+                            删除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
+                    {/* Thumbnail - 固定高度 */}
+                    <div className="flex h-32 items-center justify-center bg-background">
+                      {project.thumbnail ? (
+                        <img
+                          src={project.thumbnail}
+                          alt={project.title}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <Logo className="h-8 w-8 text-muted" />
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="p-3">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-sm font-medium text-primary">
+                          {project.title}
+                        </h3>
+                        <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          project.engineType === 'excalidraw'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                            : project.engineType === 'drawio'
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                              : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                        }`}>
+                          {project.engineType.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted">
+                        更新于 {formatDate(project.updatedAt)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>

@@ -1008,11 +1008,12 @@ if (fs.existsSync(distPath)) {
 
         // Read settings to get system name
         const settings = await getSettings();
-        const systemName = settings.system?.name || 'AI Draw Nexus';
+        const systemName = settings.system?.name || 'AI Draw';
         const showAbout = settings.system?.showAbout !== false; // Default true
+        const defaultEngine = settings.system?.defaultEngine || 'drawio';
 
         // Inject environment variables
-        const envScript = `<script>window._ENV_ = { DEBUG: ${process.env.DEBUG === 'true'}, SYSTEM_NAME: "${systemName}", SHOW_ABOUT: ${showAbout} };</script>`;
+        const envScript = `<script>window._ENV_ = { DEBUG: ${process.env.DEBUG === 'true'}, SYSTEM_NAME: "${systemName}", SHOW_ABOUT: ${showAbout}, DEFAULT_ENGINE: "${defaultEngine}" };</script>`;
         html = html.replace('</head>', `${envScript}</head>`);
 
         // Update title

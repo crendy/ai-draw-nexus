@@ -1,11 +1,14 @@
-import { AppSidebar, AppHeader } from '@/components/layout'
-import { Github } from 'lucide-react'
+import {useState} from 'react'
+import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
+import {Github} from 'lucide-react'
 
 export function AboutPage() {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+
   return (
     <div className="flex min-h-screen bg-background">
-      <AppSidebar />
-      <main className="flex flex-1 flex-col">
+      <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
+      <main className="flex flex-1 flex-col pl-[72px]">
         <AppHeader />
         <div className="flex flex-1 items-start justify-center px-8 pt-12">
           <div className="w-full max-w-3xl space-y-8">
@@ -61,6 +64,11 @@ export function AboutPage() {
           </div>
         </div>
       </main>
+
+      <CreateProjectDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+      />
     </div>
   )
 }

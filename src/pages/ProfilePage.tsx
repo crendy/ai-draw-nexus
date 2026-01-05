@@ -1,13 +1,15 @@
 import {useEffect, useState} from 'react'
-import {AppHeader, AppSidebar} from '@/components/layout'
+import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input} from '@/components/ui'
 import {quotaService} from '@/services/quotaService'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Eye, EyeOff, KeyRound, MessageCircle, Server, Settings, Settings2, Sparkles, Trash2, User, Users} from 'lucide-react'
+import {Eye, EyeOff, KeyRound, MessageCircle, Server, Settings, Sparkles, Trash2, User, Users} from 'lucide-react'
 import {Link} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
+import {ENGINES} from '@/constants'
+import type {EngineType} from '@/types'
 
 export function ProfilePage() {
   const [activeTab, setActiveTab] = useState('profile')
@@ -19,6 +21,7 @@ export function ProfilePage() {
   const user = useAuthStore((state) => state.user)
   const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false)
   const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   useEffect(() => {
     // 加载配额信息
@@ -42,8 +45,8 @@ export function ProfilePage() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <AppSidebar />
-      <main className="flex flex-1 flex-col">
+      <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
+      <main className="flex flex-1 flex-col pl-[72px]">
         <AppHeader />
         <div className="flex flex-1 items-start justify-center px-8 pt-12">
           <div className="w-full max-w-5xl rounded-xl border border-border bg-surface shadow-sm">
@@ -192,6 +195,11 @@ export function ProfilePage() {
         open={isChangePasswordDialogOpen}
         onOpenChange={setIsChangePasswordDialogOpen}
         onSave={handlePasswordChange}
+      />
+
+      <CreateProjectDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
       />
     </div>
   )
@@ -1253,10 +1261,12 @@ function GlobalLLMConfig() {
 function SystemSettingsConfig() {
   const [systemName, setSystemName] = useState('')
   const [showAbout, setShowAbout] = useState(true)
+  const [defaultEngine, setDefaultEngine] = useState<EngineType>('drawio')
   const [loading, setLoading] = useState(false)
   const { success, error: showError } = useToast()
   const setGlobalSystemName = useSystemStore((state) => state.setSystemName)
   const setGlobalShowAbout = useSystemStore((state) => state.setShowAbout)
+  const setGlobalDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
 
   useEffect(() => {
     loadSettings()
@@ -1268,9 +1278,11 @@ function SystemSettingsConfig() {
       if (settings.system) {
         setSystemName(settings.system.name || 'AI Draw Nexus')
         setShowAbout(settings.system.showAbout !== false)
+        setDefaultEngine(settings.system.defaultEngine || 'drawio')
       } else {
-        setSystemName('AI Draw Nexus')
+        setSystemName('FlowCraft AI')
         setShowAbout(true)
+        setDefaultEngine('drawio')
       }
     } catch (err) {
       showError('加载配置失败')
@@ -1283,11 +1295,13 @@ function SystemSettingsConfig() {
       await authService.updateSystemSettings({
         system: {
           name: systemName,
-          showAbout
+          showAbout,
+          defaultEngine
         }
       })
       setGlobalSystemName(systemName)
       setGlobalShowAbout(showAbout)
+      setGlobalDefaultEngine(defaultEngine)
       document.title = systemName
       success('配置已保存')
     } catch (err) {
@@ -1305,11 +1319,29 @@ function SystemSettingsConfig() {
           <Input
             value={systemName}
             onChange={(e) => setSystemName(e.target.value)}
-            placeholder="AI Draw Nexus"
+            placeholder="AI Draw"
             className="rounded-xl"
           />
           <p className="mt-2 text-xs text-muted">
             设置系统的显示名称，将显示在浏览器标题、登录页和首页等位置。
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted">默认绘图引擎</label>
+          <select
+            value={defaultEngine}
+            onChange={(e) => setDefaultEngine(e.target.value as EngineType)}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+          >
+            {ENGINES.map((engine) => (
+              <option key={engine.value} value={engine.value}>
+                {engine.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs text-muted">
+            设置系统默认的绘图引擎，新用户或重置后将使用此引擎。
           </p>
         </div>
 

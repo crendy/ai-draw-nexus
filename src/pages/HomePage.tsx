@@ -1,11 +1,11 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
-import {ChevronDown, Link, MoveRight, Paperclip, Plus, Send, Sparkles, X} from 'lucide-react'
-import {Button, Loading} from '@/components/ui'
+import {Link, MoveRight, Paperclip, Send, Sparkles, X} from 'lucide-react'
+import {Button, Loading, Logo} from '@/components/ui'
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
-import {ENGINES, QUICK_ACTIONS} from '@/constants'
+import {QUICK_ACTIONS} from '@/constants'
 import {formatDate} from '@/lib/utils'
-import type {Attachment, DocumentAttachment, EngineType, ImageAttachment, Project, UrlAttachment} from '@/types'
+import type {Attachment, DocumentAttachment, ImageAttachment, Project, UrlAttachment} from '@/types'
 import {ProjectRepository} from '@/services/projectRepository'
 import {useChatStore} from '@/stores/chatStore'
 import {useAuthStore} from '@/stores/authStore'
@@ -24,17 +24,17 @@ import {
 export function HomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
-  const [selectedEngine, setSelectedEngine] = useState<EngineType>('drawio')
+  const defaultEngine = useSystemStore((state) => state.defaultEngine)
+  const setDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
   const [isLoading, setIsLoading] = useState(false)
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
-  const [showEngineDropdown, setShowEngineDropdown] = useState(false)
   const [attachments, setAttachments] = useState<File[]>([])
   const [urlAttachments, setUrlAttachments] = useState<UrlAttachment[]>([])
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [urlInputValue, setUrlInputValue] = useState('')
   const [isParsingUrl, setIsParsingUrl] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const setInitialPrompt = useChatStore((state) => state.setInitialPrompt)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const systemName = useSystemStore((state) => state.systemName)
@@ -48,13 +48,13 @@ export function HomePage() {
   }, [])
 
   // 点击外部关闭引擎选择下拉框
-  useEffect(() => {
-    const handleClickOutside = () => setShowEngineDropdown(false)
-    if (showEngineDropdown) {
-      document.addEventListener('click', handleClickOutside)
-      return () => document.removeEventListener('click', handleClickOutside)
-    }
-  }, [showEngineDropdown])
+  // useEffect(() => {
+  //   const handleClickOutside = () => setShowEngineDropdown(false)
+  //   if (showEngineDropdown) {
+  //     document.addEventListener('click', handleClickOutside)
+  //     return () => document.removeEventListener('click', handleClickOutside)
+  //   }
+  // }, [showEngineDropdown])
 
   const loadRecentProjects = async () => {
     try {
@@ -77,7 +77,7 @@ export function HomePage() {
     try {
       const project = await ProjectRepository.create({
         title: `Untitled-${Date.now()}`,
-        engineType: selectedEngine,
+        engineType: defaultEngine,
       })
 
       // 转换文件附件为 Attachment 类型
@@ -171,10 +171,12 @@ export function HomePage() {
   }
 
   const handleQuickAction = async (action: (typeof QUICK_ACTIONS)[0]) => {
-    setSelectedEngine(action.engine)
+    // setDefaultEngine(action.engine) // Don't switch engine
     setPrompt(action.prompt)
     // 自动聚焦到输入框
-    textareaRef.current?.focus()
+    if (textareaRef.current) {
+      textareaRef.current.focus()
+    }
   }
 
   const handleAttachmentClick = () => {
@@ -228,7 +230,7 @@ export function HomePage() {
       <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
 
       {/* Main Content */}
-      <main className="flex flex-1 flex-col">
+      <main className="flex flex-1 flex-col pl-[72px]">
         {/* Header */}
         <AppHeader />
 
@@ -257,7 +259,6 @@ export function HomePage() {
                 {systemName}
               </h1>
             </div>
-            <p className="text-muted">AI驱动的一站式绘图平台</p>
           </div>
 
           {/* Chat Input Box */}
@@ -385,7 +386,7 @@ export function HomePage() {
                           disabled={!urlInputValue.trim() || isParsingUrl}
                           className="h-7 px-2"
                         >
-                          {isParsingUrl ? <Loading size="sm" /> : <MoveRight className="h-4 w-4" />}
+                          {isParsingUrl ? <><Loading size="sm" /></> : <><MoveRight className="h-4 w-4" /></>}
                         </Button>
                         <Button
                           variant="ghost"
@@ -403,54 +404,7 @@ export function HomePage() {
                     )}
                   </div>
 
-                  {/* 选择绘图引擎 */}
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowEngineDropdown(!showEngineDropdown)
-                      }}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-background hover:text-primary"
-                    >
-                      <span>{ENGINES.find(e => e.value === selectedEngine)?.label}</span>
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                    {showEngineDropdown && (
-                      <div
-                        className="absolute bottom-full left-0 mb-2 w-64 rounded-xl border border-border bg-surface py-1 shadow-lg"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {ENGINES.map((engine) => {
-                          const descriptions: Record<string, string> = {
-                            drawio: '专业而强大的绘图工具',
-                            mermaid: '简洁标准的图形绘制',
-                            excalidraw: '优雅干净的手绘风格',
-                          }
-                          return (
-                            <button
-                              key={engine.value}
-                              onClick={() => {
-                                setSelectedEngine(engine.value)
-                                setShowEngineDropdown(false)
-                              }}
-                              className={`w-full px-4 py-2 text-left transition-colors hover:bg-background ${
-                                selectedEngine === engine.value
-                                  ? 'text-accent'
-                                  : 'text-primary'
-                              }`}
-                            >
-                              <div className={`text-sm ${selectedEngine === engine.value ? 'font-medium' : ''}`}>
-                                {engine.label}
-                              </div>
-                              <div className="text-xs text-muted mt-0.5">
-                                {descriptions[engine.value]}
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  {/* 选择绘图引擎 - 已移至顶部导航栏 */}
                 </div>
 
                 {/* 发送按钮 */}
@@ -460,7 +414,7 @@ export function HomePage() {
                   className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-surface transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   {isLoading ? (
-                    <span>创建中...</span>
+                    <><span>创建中...</span></>
                   ) : (
                     <>
                       <Send className="h-4 w-4" />
@@ -473,90 +427,92 @@ export function HomePage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="mb-12 w-full max-w-3xl">
-            <p className="mb-4 text-center text-sm text-muted">
-              <span className="inline-flex items-center gap-1.5">
-                支持：
-                <span>📄 上传文档，可视化阅读</span>
-                <span className="text-border">·</span>
-                <span>🖼️ 上传图片复刻图表</span>
-                <span className="text-border">·</span>
-                <span>🔗 链接解析，快速解读网页</span>
-              </span>
-            </p>
-            <p className="mb-4 text-left text-sm text-muted">试试这些用例，快速开始</p>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              {QUICK_ACTIONS.map((action, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleQuickAction(action)}
-                  disabled={isLoading}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 text-left transition-all hover:border-primary hover:shadow-md disabled:opacity-50"
-                >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-background">
-                    <action.icon className="h-5 w-5 text-accent" />
-                  </div>
-                  <span className="text-sm text-primary line-clamp-2">{action.label}</span>
-                </button>
-              ))}
+          <div className="mb-12 w-full max-w-6xl">
+            <div className="rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-8">
+              <div className="mb-6 flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-medium text-primary">试试这些用例，快速开始</h2>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {QUICK_ACTIONS.map((action, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleQuickAction(action)}
+                    disabled={isLoading}
+                    className="group relative flex h-36 flex-col justify-between rounded-2xl bg-background/80 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] disabled:opacity-50 border border-transparent hover:border-border/50"
+                  >
+                    <p className="text-sm text-muted-foreground/80 line-clamp-3 leading-relaxed group-hover:text-muted-foreground">
+                      {action.prompt}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                        index % 3 === 0 ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' :
+                        index % 3 === 1 ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' :
+                        'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'
+                      }`}>
+                        <action.icon className="h-3.5 w-3.5" />
+                        <span>{action.label}</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Recent Projects Section */}
           <div className="w-full max-w-6xl pb-12">
-            <h2 className="mb-4 text-lg font-medium text-primary">最近项目</h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {/* New Project Card */}
-              <button
-                onClick={() => setIsCreateDialogOpen(true)}
-                className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface transition-all hover:border-primary hover:shadow-md"
-                style={{ height: 'calc(6rem + 68px)' }}
-              >
-                <Plus className="mb-2 h-6 w-6 text-muted" />
-                <span className="text-sm text-muted">新建项目</span>
-              </button>
-
-              {/* Recent Projects */}
-              {recentProjects.map((project) => (
-                <button
-                  key={project.id}
-                  onClick={() => navigate(`/editor/${project.id}`)}
-                  className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-primary hover:shadow-md"
-                >
-                  <div className="flex h-24 items-center justify-center bg-background">
-                    {project.thumbnail ? (
-                      <img
-                        src={project.thumbnail}
-                        alt={project.title}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <Sparkles className="h-8 w-8 text-muted" />
-                    )}
-                  </div>
-                  <div className="p-3 text-left">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-primary">
-                        {project.title === `Untitled-${project.id}`
-                          ? '未命名'
-                          : project.title}
-                      </p>
-                      <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                        project.engineType === 'excalidraw'
-                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                          : project.engineType === 'drawio'
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                            : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                      }`}>
-                        {project.engineType.toUpperCase()}
-                      </span>
+            <div className="rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-8">
+              <div className="mb-6 flex items-center justify-between px-1">
+                <h2 className="text-lg font-medium text-primary">最近项目</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {/* Recent Projects */}
+                {recentProjects.map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={() => navigate(`/editor/${project.id}`)}
+                    className="group relative flex flex-col overflow-hidden rounded-2xl bg-background/80 transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent hover:border-border/50"
+                  >
+                    <div className="flex h-24 items-center justify-center bg-background/50 p-4">
+                      {project.thumbnail ? (
+                        <img
+                          src={project.thumbnail}
+                          alt={project.title}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <Logo className="h-8 w-8 text-muted/50 group-hover:text-primary/50 transition-colors" />
+                      )}
                     </div>
-                    <p className="text-xs text-muted">
-                      更新于 {formatDate(project.updatedAt)}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                    <div className="p-4 text-left">
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <p className="truncate text-sm font-medium text-primary/90 group-hover:text-primary">
+                          {project.title === `Untitled-${project.id}`
+                            ? '未命名'
+                            : project.title}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+                          project.engineType === 'excalidraw'
+                            ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                            : project.engineType === 'drawio'
+                              ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'
+                              : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+                        }`}>
+                          {project.engineType.toUpperCase()}
+                        </span>
+                        <p className="text-[10px] text-muted-foreground/60">
+                          {formatDate(project.updatedAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -19,29 +19,7 @@ import {ProjectRepository} from '@/services/projectRepository'
 import {GroupRepository} from '@/services/groupRepository'
 import type {EngineType, Group} from '@/types'
 
-const ENGINE_TIPS: Record<EngineType, { title: string; features: string[] }> = {
-  mermaid: {
-    title: 'Mermaid',
-    features: [
-      '基于文本的图表生成，使用简洁的语法,适合快速绘制结构化图表',
-      '支持流程图、时序图、甘特图、ER图等多种图表,可直接嵌入 Markdown',
-    ],
-  },
-  excalidraw: {
-    title: 'Excalidraw',
-    features: [
-      '风格精美的手绘风格的白板工具，界面简洁直观',
-      '自由绘制，支持形状、箭头、文本等元素',
-    ],
-  },
-  drawio: {
-    title: 'Draw.io',
-    features: [
-      '专业级图表编辑器，功能丰富,内置大量模板和图形库',
-      '支持 UML、网络拓扑、流程图等专业图表,适合绘制复杂、精细的技术文档图表',
-    ],
-  },
-}
+import {useSystemStore} from '@/stores/systemStore'
 
 interface CreateProjectDialogProps {
   open: boolean
@@ -50,8 +28,9 @@ interface CreateProjectDialogProps {
 
 export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
   const navigate = useNavigate()
+  const defaultEngine = useSystemStore((state) => state.defaultEngine)
   const [title, setTitle] = useState('未命名')
-  const [engine, setEngine] = useState<EngineType>('mermaid')
+  const [engine, setEngine] = useState<EngineType>(defaultEngine)
   const [groupId, setGroupId] = useState<string>('uncategorized')
   const [groups, setGroups] = useState<Group[]>([])
   const [isCreating, setIsCreating] = useState(false)
@@ -59,8 +38,9 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
   useEffect(() => {
     if (open) {
       loadGroups()
+      setEngine(defaultEngine)
     }
-  }, [open])
+  }, [open, defaultEngine])
 
   const loadGroups = async () => {
     try {
@@ -95,7 +75,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setTitle('未命名')
-      setEngine('mermaid')
+      setEngine(defaultEngine)
       setGroupId('uncategorized')
     }
     onOpenChange(newOpen)
@@ -137,37 +117,20 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
           <div>
             <label className="mb-2 block text-sm font-medium">引擎</label>
-            <div className="flex gap-2">
-              {ENGINES.map((e) => (
-                <button
-                  key={e.value}
-                  onClick={() => setEngine(e.value)}
-                  className={`flex-1 rounded-xl border p-3 text-sm transition-colors ${
-                    engine === e.value
-                      ? 'border-primary bg-primary text-surface'
-                      : 'border-border bg-surface text-primary hover:border-primary'
-                  }`}
-                >
-                  {e.label}
-                </button>
-              ))}
+            <div className="rounded-xl border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-primary">
+                    {ENGINES.find(e => e.value === engine)?.label}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                如需使用其他引擎，请在首页左上角或系统设置中进行切换。
+              </p>
             </div>
           </div>
-          {/* Tips 区域 */}
-          <div className="rounded-xl bg-muted/50 p-3">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
-              <span>💡</span>
-              <span>{ENGINE_TIPS[engine].title} 特点</span>
-            </div>
-            <ul className="space-y-1 text-xs text-muted-foreground">
-              {ENGINE_TIPS[engine].features.map((feature, index) => (
-                <li key={index} className="flex items-start gap-2">
-                  <span className="mt-0.5 text-primary">•</span>
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Tips 区域 - 已移除 */}
         </div>
         <DialogFooter>
           <Button

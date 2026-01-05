@@ -1,22 +1,8 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
-import {
-  Check,
-  ChevronRight,
-  Code,
-  Download,
-  FileText,
-  FolderOpen,
-  History,
-  Home,
-  Image,
-  Menu,
-  Pencil,
-  Plus,
-  Save,
-  X
-} from 'lucide-react'
+import {Check, ChevronRight, Code, Download, FileText, History, Image, Pencil, Save, X} from 'lucide-react'
 import {Button, Input, Loading} from '@/components/ui'
+import {AppSidebar} from '@/components/layout'
 import {ChatPanel} from '@/features/chat/ChatPanel'
 import {CanvasArea, type CanvasAreaRef} from '@/features/editor/CanvasArea'
 import {VersionPanel} from '@/features/editor/VersionPanel'
@@ -45,9 +31,7 @@ export function EditorPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<CanvasAreaRef>(null)
   const { success } = useToast()
 
@@ -104,36 +88,8 @@ export function EditorPage() {
     }
   }, [isEditingTitle])
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false)
-      }
-    }
-
-    if (isMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isMenuOpen])
-
   const handleNewProject = () => {
-    setIsMenuOpen(false)
     navigate('/projects', { state: { openCreateDialog: true } })
-  }
-
-  const handleProjectManagement = () => {
-    setIsMenuOpen(false)
-    navigate('/projects')
-  }
-
-  const handleGoHome = () => {
-    setIsMenuOpen(false)
-    navigate('/')
   }
 
   const handleStartEditTitle = () => {
@@ -233,43 +189,11 @@ export function EditorPage() {
 
   return (
     <TooltipProvider>
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex h-screen flex-col bg-background pl-[72px]">
+      <AppSidebar onCreateProject={handleNewProject} />
       {/* Toolbar */}
       <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-4">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="relative" ref={menuRef}>
-              <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                <Menu className="h-4 w-4" />
-              </Button>
-              {isMenuOpen && (
-                <div className="absolute left-0 top-full z-50 mt-1 w-40 rounded-md border border-border bg-surface py-1 shadow-lg">
-                  <button
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted/50"
-                    onClick={handleNewProject}
-                  >
-                    <Plus className="h-4 w-4" />
-                    新建项目
-                  </button>
-                  <button
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted/50"
-                    onClick={handleProjectManagement}
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                    项目管理
-                  </button>
-                </div>
-              )}
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={handleGoHome}>
-                  <Home className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>首页</TooltipContent>
-            </Tooltip>
-          </div>
           <div>
             {isEditingTitle ? (
               <div className="flex items-center gap-2">
@@ -289,6 +213,13 @@ export function EditorPage() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    currentProject.engineType === 'excalidraw'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                      : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                  }`}>
+                  {currentProject.engineType.toUpperCase()}
+                </span>
                 <h1 className="font-medium text-primary">{currentProject.title}</h1>
                 <Button
                   variant="ghost"
@@ -298,13 +229,6 @@ export function EditorPage() {
                 >
                   <Pencil className="h-3 w-3" />
                 </Button>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    currentProject.engineType === 'excalidraw'
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                      : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                  }`}>
-                  {currentProject.engineType.toUpperCase()}
-                </span>
               </div>
             )}
           </div>
