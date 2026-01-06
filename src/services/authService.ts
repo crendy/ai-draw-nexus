@@ -1,4 +1,5 @@
 import {useAuthStore} from '@/stores/authStore'
+import type {EngineType} from '@/types'
 
 const API_BASE = '/api/auth'
 
@@ -12,6 +13,7 @@ export interface SystemSettings {
   system?: {
     name?: string
     showAbout?: boolean
+    defaultEngine?: EngineType
   }
 }
 
