@@ -1,5 +1,5 @@
 import {useLocation, useNavigate} from 'react-router-dom'
-import {ChevronLeft, ChevronRight, LogOut, Plus, User} from 'lucide-react'
+import {ChevronLeft, ChevronRight, Github, LogOut, Plus, User} from 'lucide-react'
 import {NAV_ITEMS} from '@/constants'
 import {useSystemStore} from '@/stores/systemStore'
 import {useAuthStore} from '@/stores/authStore'
@@ -79,6 +79,17 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
 
       {/* Bottom Actions */}
       <div className="mt-auto flex flex-col items-center gap-4 w-full px-2 pb-2">
+        {/* GitHub Link */}
+        <a
+          href="https://github.com/stone-yu/ai-draw"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-primary"
+          title="GitHub 开源仓库"
+        >
+          <Github className="h-5 w-5" />
+        </a>
+
         {/* Collapse Toggle */}
         <button
           onClick={() => setSidebarCollapsed(!isCollapsed)}

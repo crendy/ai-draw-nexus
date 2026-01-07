@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
+import {AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {Github} from 'lucide-react'
 
 export function AboutPage() {
@@ -9,8 +9,7 @@ export function AboutPage() {
     <div className="flex min-h-screen bg-background">
       <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
       <main className="flex flex-1 flex-col pl-[72px]">
-        <AppHeader />
-        <div className="flex flex-1 items-start justify-center px-8 pt-12">
+        <div className="flex flex-1 items-start justify-center p-8">
           <div className="w-full max-w-3xl space-y-8">
             {/* 开源信息 */}
             <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -21,12 +20,12 @@ export function AboutPage() {
               <p className="text-sm leading-relaxed text-muted">
                 本项目的代码已全部开源至{' '}
                 <a
-                  href="https://github.com/crendy/ai-draw-nexus"
+                  href="https://github.com/stone-yu/ai-draw"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary underline hover:text-primary/80"
                 >
-                  crendy/ai-draw-nexus
+                  stone-yu/ai-draw
                 </a>
                 。
               </p>

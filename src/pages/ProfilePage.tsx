@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
+import {AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input} from '@/components/ui'
 import {quotaService} from '@/services/quotaService'
 import {authService} from '@/services/authService'
@@ -44,15 +44,13 @@ export function ProfilePage() {
   const hasPassword = quotaService.hasAccessPassword()
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
-      <main className="flex flex-1 flex-col pl-[72px]">
-        <AppHeader />
-        <div className="flex flex-1 items-start justify-center px-8 pt-12">
-          <div className="w-full max-w-5xl rounded-xl border border-border bg-surface shadow-sm">
-            <div className="flex min-h-[500px]">
+      <main className="flex flex-1 flex-col pl-[72px] h-full">
+        <div className="flex flex-1 w-full bg-background overflow-hidden">
+            <div className="flex h-full w-full">
               {/* 左侧 Tab */}
-              <div className="w-48 border-r border-border p-4">
+              <div className="w-48 border-r border-border bg-surface/50 p-4 overflow-y-auto">
                 <nav className="space-y-1">
                   <button
                     onClick={() => setActiveTab('profile')}
@@ -119,7 +117,7 @@ export function ProfilePage() {
               </div>
 
               {/* 右侧内容区 */}
-              <div className="flex-1 p-6">
+              <div className="flex-1 bg-surface p-6 overflow-y-auto">
                 {activeTab === 'profile' && (
                   <>
                     <h2 className="mb-6 text-lg font-medium text-primary">用户信息</h2>
@@ -186,7 +184,6 @@ export function ProfilePage() {
                 )}
               </div>
             </div>
-          </div>
         </div>
       </main>
 
@@ -1276,11 +1273,11 @@ function SystemSettingsConfig() {
     try {
       const settings = await authService.getSystemSettings()
       if (settings.system) {
-        setSystemName(settings.system.name || 'AI Draw Nexus')
+        setSystemName(settings.system.name || '智绘 AI')
         setShowAbout(settings.system.showAbout !== false)
         setDefaultEngine(settings.system.defaultEngine || 'drawio')
       } else {
-        setSystemName('FlowCraft AI')
+        setSystemName('智绘(AI Draw)')
         setShowAbout(true)
         setDefaultEngine('drawio')
       }
@@ -1319,7 +1316,7 @@ function SystemSettingsConfig() {
           <Input
             value={systemName}
             onChange={(e) => setSystemName(e.target.value)}
-            placeholder="AI Draw"
+            placeholder="智绘 AI"
             className="rounded-xl"
           />
           <p className="mt-2 text-xs text-muted">

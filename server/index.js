@@ -636,7 +636,7 @@ app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
 app.get('/api/projects', authenticateToken, async (req, res) => {
   const projects = await getProjects();
   const userProjects = projects.filter(p => p.userId === req.user.id);
-  userProjects.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  userProjects.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   res.json(userProjects);
 });
 
@@ -1008,7 +1008,7 @@ if (fs.existsSync(distPath)) {
 
         // Read settings to get system name
         const settings = await getSettings();
-        const systemName = settings.system?.name || 'AI Draw';
+        const systemName = settings.system?.name || '智绘(AI Draw)';
         const showAbout = settings.system?.showAbout !== false; // Default true
         const defaultEngine = settings.system?.defaultEngine || 'drawio';
 

@@ -236,18 +236,7 @@ export function HomePage() {
 
         {/* Hero Section */}
         <div className="flex flex-1 flex-col items-center px-8 pt-12">
-          {/* Promotional Banner */}
-          {/* <div className="mb-8 flex items-center gap-2 rounded-full bg-accent-light px-4 py-2">
-            <span className="rounded bg-accent px-2 py-0.5 text-xs font-medium text-surface">
-              NEW
-            </span>
-            <span className="text-sm text-primary">
-              立即升级，享受365天无限制使用！
-            </span>
-            <span className="cursor-pointer text-sm font-medium text-accent">
-              立即升级 →
-            </span>
-          </div> */}
+
 
           {/* Logo & Slogan */}
           <div className="mb-8 flex flex-col items-center">
@@ -386,7 +375,7 @@ export function HomePage() {
                           disabled={!urlInputValue.trim() || isParsingUrl}
                           className="h-7 px-2"
                         >
-                          {isParsingUrl ? <><Loading size="sm" /></> : <><MoveRight className="h-4 w-4" /></>}
+                          {isParsingUrl ? <Loading size="sm" /> : <MoveRight className="h-4 w-4" />}
                         </Button>
                         <Button
                           variant="ghost"
@@ -414,12 +403,12 @@ export function HomePage() {
                   className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-surface transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   {isLoading ? (
-                    <><span>创建中...</span></>
+                    <span>创建中...</span>
                   ) : (
-                    <>
+                    <div className="flex items-center gap-2">
                       <Send className="h-4 w-4" />
                       <span>发送</span>
-                    </>
+                    </div>
                   )}
                 </Button>
               </div>
@@ -427,7 +416,7 @@ export function HomePage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="mb-12 w-full max-w-6xl">
+          <div className="mb-8 w-full max-w-6xl">
             <div className="rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-8">
               <div className="mb-6 flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
@@ -476,7 +465,12 @@ export function HomePage() {
                     onClick={() => navigate(`/editor/${project.id}`)}
                     className="group relative flex flex-col overflow-hidden rounded-2xl bg-background/80 transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent hover:border-border/50"
                   >
-                    <div className="flex h-24 items-center justify-center bg-background/50 p-4">
+                    <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="rounded-md bg-surface/90 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
+                        更新于 {formatDate(project.updatedAt)}
+                      </div>
+                    </div>
+                    <div className="flex h-24 items-center justify-center bg-background/50 p-6 border-b border-dashed border-border/60">
                       {project.thumbnail ? (
                         <img
                           src={project.thumbnail}
@@ -487,15 +481,15 @@ export function HomePage() {
                         <Logo className="h-8 w-8 text-muted/50 group-hover:text-primary/50 transition-colors" />
                       )}
                     </div>
-                    <div className="p-4 text-left">
+                    <div className="p-4 text-left w-full bg-white">
                       <div className="mb-1.5 flex items-center gap-2">
-                        <p className="truncate text-sm font-medium text-primary/90 group-hover:text-primary">
+                        <p className="truncate text-sm font-medium text-primary/90 group-hover:text-primary pl-1">
                           {project.title === `Untitled-${project.id}`
                             ? '未命名'
                             : project.title}
                         </p>
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
                           project.engineType === 'excalidraw'
                             ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
@@ -505,8 +499,8 @@ export function HomePage() {
                         }`}>
                           {project.engineType.toUpperCase()}
                         </span>
-                        <p className="text-[10px] text-muted-foreground/60">
-                          {formatDate(project.updatedAt)}
+                        <p className="text-[10px] text-muted-foreground/60 ml-auto">
+                          创建于 {formatDate(project.createdAt)}
                         </p>
                       </div>
                     </div>

@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
-import {Check, ChevronRight, Code, Download, FileText, History, Image, Pencil, Save, X} from 'lucide-react'
+import {Check, ChevronLeft, ChevronRight, Code, Download, FileText, History, Image, Pencil, Save, X} from 'lucide-react'
 import {Button, Input, Loading} from '@/components/ui'
 import {AppSidebar} from '@/components/layout'
 import {ChatPanel} from '@/features/chat/ChatPanel'
@@ -213,6 +213,15 @@ export function EditorPage() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => navigate(-1)}
+                  title="返回"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                     currentProject.engineType === 'excalidraw'
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'

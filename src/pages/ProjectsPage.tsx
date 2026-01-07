@@ -224,7 +224,7 @@ export function ProjectsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background overflow-hidden">
+    <div className="flex min-h-screen bg-white overflow-hidden">
       {/* Floating Sidebar Navigation */}
       <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
 
@@ -336,7 +336,7 @@ export function ProjectsPage() {
         </div>
 
         {/* Right Column: Projects Grid */}
-        <div className="flex flex-1 flex-col overflow-hidden bg-background">
+        <div className="flex flex-1 flex-col overflow-hidden bg-white">
           {/* Header */}
           <div className="flex h-14 items-center justify-between border-b border-border px-6">
             <h1 className="text-lg font-semibold text-primary">
@@ -406,11 +406,14 @@ export function ProjectsPage() {
                 {filteredProjects.map((project) => (
                   <div
                     key={project.id}
-                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-primary hover:shadow-md"
+                    className="group relative cursor-pointer overflow-hidden rounded-2xl bg-background/80 transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent hover:border-border/50"
                     onClick={() => navigate(`/editor/${project.id}`)}
                   >
                     {/* Action Buttons - 右上角 */}
                     <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex items-center rounded-md bg-surface/90 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
+                        更新于 {formatDate(project.updatedAt)}
+                      </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -449,8 +452,8 @@ export function ProjectsPage() {
                       </DropdownMenu>
                     </div>
 
-                    {/* Thumbnail - 固定高度 */}
-                    <div className="flex h-32 items-center justify-center bg-background">
+                    {/* Thumbnail */}
+                    <div className="flex h-32 items-center justify-center bg-background/50 p-6 border-b border-dashed border-border/60">
                       {project.thumbnail ? (
                         <img
                           src={project.thumbnail}
@@ -458,29 +461,31 @@ export function ProjectsPage() {
                           className="h-full w-full object-contain"
                         />
                       ) : (
-                        <Logo className="h-8 w-8 text-muted" />
+                        <Logo className="h-8 w-8 text-muted/50 group-hover:text-primary/50 transition-colors" />
                       )}
                     </div>
 
                     {/* Info */}
-                    <div className="p-3">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate text-sm font-medium text-primary">
+                    <div className="p-4 text-left w-full bg-white">
+                      <div className="mb-2 flex items-center gap-2">
+                        <h3 className="truncate text-sm font-medium text-primary/90 group-hover:text-primary pl-1">
                           {project.title}
                         </h3>
-                        <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
                           project.engineType === 'excalidraw'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                            ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
                             : project.engineType === 'drawio'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                              : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                              ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'
+                              : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
                         }`}>
                           {project.engineType.toUpperCase()}
                         </span>
+                        <p className="text-[10px] text-muted-foreground/60">
+                          创建于 {formatDate(project.createdAt)}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted">
-                        更新于 {formatDate(project.updatedAt)}
-                      </p>
                     </div>
                   </div>
                 ))}
