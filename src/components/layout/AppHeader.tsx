@@ -55,7 +55,7 @@ export function AppHeader() {
         <span className="text-sm text-muted">简体中文</span>
         {user && (
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{user.username}</span>
+            <span className="text-sm font-medium">{user.nickname || user.username}</span>
             <Button
               variant="ghost"
               size="sm"

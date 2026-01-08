@@ -239,15 +239,15 @@ export function HomePage() {
 
 
           {/* Logo & Slogan */}
-          <div className="mb-8 flex flex-col items-center">
-            <div className="mb-4 flex items-center gap-3">
-              {/* <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-                <Sparkles className="h-6 w-6 text-surface" />
-              </div> */}
-              <h1 className="text-3xl font-bold text-primary">
-                {systemName}
-              </h1>
+          <div className="mb-12 flex flex-col items-center">
+            <div className="mb-6 flex items-center gap-3 text-4xl font-bold text-primary sm:text-5xl">
+              <span>AI Draw</span>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-surface shadow-sm">
+                <Logo className="h-7 w-7" />
+              </div>
+              <span>一句话呈所想</span>
             </div>
+            <p className="text-lg text-muted-foreground">与 AI 对话轻松绘图</p>
           </div>
 
           {/* Chat Input Box */}
@@ -375,7 +375,7 @@ export function HomePage() {
                           disabled={!urlInputValue.trim() || isParsingUrl}
                           className="h-7 px-2"
                         >
-                          {isParsingUrl ? <Loading size="sm" /> : <MoveRight className="h-4 w-4" />}
+                          <>{isParsingUrl ? <Loading size="sm" /> : <MoveRight className="h-4 w-4" />}</>
                         </Button>
                         <Button
                           variant="ghost"
@@ -402,14 +402,14 @@ export function HomePage() {
                   disabled={!prompt.trim() || isLoading}
                   className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-surface transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {isLoading ? (
+                  <>{isLoading ? (
                     <span>创建中...</span>
                   ) : (
                     <div className="flex items-center gap-2">
                       <Send className="h-4 w-4" />
                       <span>发送</span>
                     </div>
-                  )}
+                  )}</>
                 </Button>
               </div>
             </div>

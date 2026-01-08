@@ -22,7 +22,7 @@ export const NAV_ITEMS = [
   { icon: Home, label: '系统首页', path: '/' },
   { icon: FolderOpen, label: '项目管理', path: '/projects' },
   { icon: Settings, label: '系统设置', path: '/profile' },
-  { icon: CassetteTape, label: '关于我们', path: '/about' },
+  // { icon: CassetteTape, label: '关于我们', path: '/about' },
 ]
 
 export const QUICK_ACTIONS = [

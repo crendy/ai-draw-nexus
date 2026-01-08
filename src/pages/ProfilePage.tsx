@@ -13,6 +13,7 @@ import type {EngineType} from '@/types'
 
 export function ProfilePage() {
   const [activeTab, setActiveTab] = useState('profile')
+  const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [quotaUsed, setQuotaUsed] = useState(0)
@@ -29,7 +30,26 @@ export function ProfilePage() {
     setQuotaTotal(quotaService.getDailyQuota())
     // 加载已保存的密码
     setPassword(quotaService.getAccessPassword())
-  }, [])
+    // 初始化昵称
+    if (user?.nickname) {
+      setNickname(user.nickname)
+    } else if (user?.username) {
+      setNickname(user.username)
+    }
+  }, [user])
+
+  const handleNicknameUpdate = async () => {
+    if (!nickname.trim()) {
+      showError('昵称不能为空')
+      return
+    }
+    try {
+      await authService.updateUserNickname(nickname)
+      success('昵称更新成功')
+    } catch (err) {
+      showError('昵称更新失败')
+    }
+  }
 
   const handlePasswordChange = async (current: string, newPass: string) => {
     try {
@@ -125,6 +145,20 @@ export function ProfilePage() {
                       <div>
                         <label className="text-sm font-medium text-muted">用户名</label>
                         <div className="mt-1 text-lg font-medium text-primary">{user?.username}</div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted">昵称</label>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Input
+                            value={nickname}
+                            onChange={(e) => setNickname(e.target.value)}
+                            className="max-w-xs"
+                            placeholder="请输入昵称"
+                          />
+                          <Button onClick={handleNicknameUpdate} size="sm">
+                            保存
+                          </Button>
+                        </div>
                       </div>
                       <div>
                         <Button onClick={() => setIsChangePasswordDialogOpen(true)}>
@@ -1273,11 +1307,11 @@ function SystemSettingsConfig() {
     try {
       const settings = await authService.getSystemSettings()
       if (settings.system) {
-        setSystemName(settings.system.name || '智绘 AI')
+        setSystemName(settings.system.name || 'AI Draw')
         setShowAbout(settings.system.showAbout !== false)
         setDefaultEngine(settings.system.defaultEngine || 'drawio')
       } else {
-        setSystemName('智绘(AI Draw)')
+        setSystemName('AI Draw')
         setShowAbout(true)
         setDefaultEngine('drawio')
       }
@@ -1316,7 +1350,7 @@ function SystemSettingsConfig() {
           <Input
             value={systemName}
             onChange={(e) => setSystemName(e.target.value)}
-            placeholder="智绘 AI"
+            placeholder="AI Draw"
             className="rounded-xl"
           />
           <p className="mt-2 text-xs text-muted">

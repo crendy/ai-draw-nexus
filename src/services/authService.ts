@@ -138,6 +138,28 @@ export const authService = {
     return await response.json()
   },
 
+  async updateUserNickname(nickname: string) {
+    const response = await fetch('/api/auth/profile/nickname', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader()
+      },
+      body: JSON.stringify({ nickname })
+    })
+    if (!response.ok) throw new Error('Failed to update nickname')
+    const data = await response.json()
+
+    // Update local store
+    const currentUser = useAuthStore.getState().user
+    const token = useAuthStore.getState().token
+    if (currentUser && token) {
+      useAuthStore.getState().setAuth({ ...currentUser, nickname: data.nickname }, token)
+    }
+
+    return data
+  },
+
   async updateUserAIConfig(config: any) {
     const response = await fetch('/api/auth/profile/ai-config', {
       method: 'PUT',

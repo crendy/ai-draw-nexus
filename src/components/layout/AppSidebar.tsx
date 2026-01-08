@@ -105,17 +105,17 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
             <DropdownMenuTrigger asChild>
               <button className="flex h-10 w-10 items-center justify-center rounded-full transition-all hover:bg-muted/50 focus:outline-none">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary ring-2 ring-background transition-shadow hover:ring-primary/20">
-                  {user.username.slice(0, 2).toUpperCase()}
+                  {(user.nickname || user.username).slice(0, 2).toUpperCase()}
                 </div>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="right" className="w-56 ml-2">
               <div className="flex items-center gap-2 p-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                  {user.username.slice(0, 2).toUpperCase()}
+                  {(user.nickname || user.username).slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex flex-col space-y-0.5">
-                  <p className="text-sm font-medium">{user.username}</p>
+                  <p className="text-sm font-medium">{user.nickname || user.username}</p>
                   <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
                 </div>
               </div>

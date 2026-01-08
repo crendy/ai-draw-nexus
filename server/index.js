@@ -398,7 +398,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const user = { id: uuidv4(), username, password: hashedPassword, role: 'user', createdAt: new Date().toISOString() };
+  const user = { id: uuidv4(), username, nickname: username, password: hashedPassword, role: 'user', createdAt: new Date().toISOString() };
 
   users.push(user);
   await saveUsers(users);
@@ -416,7 +416,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, user: { id: user.id, username: user.username, role: user.role || 'user' } });
+  res.json({ token, user: { id: user.id, username: user.username, nickname: user.nickname || user.username, role: user.role || 'user' } });
 });
 
 app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
@@ -478,6 +478,25 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   // }
 
   res.json(safeUser);
+});
+
+app.put('/api/auth/profile/nickname', authenticateToken, async (req, res) => {
+  const { nickname } = req.body;
+  if (!nickname || nickname.trim().length === 0) {
+    return res.status(400).json({ error: 'Nickname is required' });
+  }
+
+  const users = await getUsers();
+  const index = users.findIndex(u => u.id === req.user.id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  users[index] = { ...users[index], nickname: nickname.trim() };
+  await saveUsers(users);
+
+  res.json({ nickname: users[index].nickname });
 });
 
 app.put('/api/auth/profile/ai-config', authenticateToken, async (req, res) => {
