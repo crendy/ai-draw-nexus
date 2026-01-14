@@ -20,7 +20,7 @@ const MAX_MERMAID_FIX_ATTEMPTS = 3
 
 // Throttle helper (ensures execution every wait ms during continuous calls)
 const throttle = (func: Function, wait: number) => {
-  let timeout: NodeJS.Timeout | null = null
+  let timeout: ReturnType<typeof setTimeout> | null = null
   let lastArgs: any[] | null = null
 
   return (...args: any[]) => {
