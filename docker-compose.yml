@@ -1,10 +1,10 @@
 version: '3.8'
 
 services:
-  ai-draw-nexus:
+  ai-draw:
     build: .
-    image: ai-draw-nexus:latest
-    container_name: ai-draw-nexus
+    image: ghcr.io/stone-yu/ai-draw:latest
+    container_name: ai-draw
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -15,11 +15,5 @@ services:
     environment:
       - PORT=3000
       - DATA_DIR=/app/data
-      - ai-draw-access-password=${ai-draw-access-password}
       - DEBUG=false
-      # AI Configuration
-      - AI_API_KEY=${AI_API_KEY}
-      - AI_BASE_URL=${AI_BASE_URL:-https://api.openai.com/v1}
-      - AI_PROVIDER=${AI_PROVIDER:-openai}
-      - AI_MODEL_ID=${AI_MODEL_ID:-gpt-3.5-turbo}
 
