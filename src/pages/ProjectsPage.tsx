@@ -234,7 +234,7 @@ export function ProjectsPage() {
         <div className="flex w-64 flex-col border-r border-border bg-surface/50">
           {/* Header */}
           <div className="flex h-14 items-center justify-between border-b border-border px-4">
-            <h2 className="font-semibold text-primary">项目管理</h2>
+            <h2 className="font-semibold text-primary">文件管理</h2>
             <Button
               variant="ghost"
               size="icon"
@@ -251,7 +251,7 @@ export function ProjectsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <Input
-                placeholder="搜索项目..."
+                placeholder="搜索文件..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-9 rounded-lg border-border bg-background pl-9 pr-4 text-sm focus:border-primary"
@@ -270,7 +270,7 @@ export function ProjectsPage() {
               }`}
             >
               <Folder className="h-4 w-4" />
-              全部项目
+              全部文件
               <span className="ml-auto text-xs opacity-60">{projects.length}</span>
             </button>
 
@@ -340,9 +340,9 @@ export function ProjectsPage() {
           {/* Header */}
           <div className="flex h-14 items-center justify-between border-b border-border px-6">
             <h1 className="text-lg font-semibold text-primary">
-              {selectedGroupId === null ? '全部项目' :
+              {selectedGroupId === null ? '全部文件' :
                selectedGroupId === 'uncategorized' ? '未分组' :
-               groups.find(g => g.id === selectedGroupId)?.name || '项目列表'}
+               groups.find(g => g.id === selectedGroupId)?.name || '文件列表'}
             </h1>
             <div className="flex gap-2">
               <Button
@@ -376,14 +376,14 @@ export function ProjectsPage() {
                 <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface p-12">
                   <Sparkles className="mb-4 h-12 w-12 text-muted" />
                   <p className="mb-4 text-muted">
-                    {searchQuery ? '未找到匹配的项目' : '暂无项目'}
+                    {searchQuery ? '未找到匹配的文件' : '暂无文件'}
                   </p>
                   {!searchQuery && (
                     <Button
                       onClick={() => setIsCreateDialogOpen(true)}
                       className="rounded-full bg-primary px-6 text-surface hover:bg-primary/90"
                     >
-                      创建你的第一个项目
+                      创建你的第一个文件
                     </Button>
                   )}
                 </div>
@@ -398,7 +398,7 @@ export function ProjectsPage() {
                     style={{ height: 'calc(8rem + 68px)' }}
                   >
                     <Plus className="mb-2 h-6 w-6 text-muted" />
-                    <span className="text-sm text-muted">新建项目</span>
+                    <span className="text-sm text-muted">新建文件</span>
                   </button>
                 )}
 
@@ -511,13 +511,13 @@ export function ProjectsPage() {
       <Dialog open={!!renameTarget} onOpenChange={() => setRenameTarget(null)}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>重命名项目</DialogTitle>
+            <DialogTitle>重命名文件</DialogTitle>
           </DialogHeader>
           <Input
             className='my-4'
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="项目名称"
+            placeholder="文件名称"
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleRename()
             }}
@@ -545,7 +545,7 @@ export function ProjectsPage() {
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>删除项目</DialogTitle>
+            <DialogTitle>删除文件</DialogTitle>
             <DialogDescription className='my-4'>
               确定要删除 &quot;{deleteTarget?.title}&quot; 吗？此操作无法撤销。
             </DialogDescription>
@@ -643,7 +643,7 @@ export function ProjectsPage() {
           <DialogHeader>
             <DialogTitle>删除分组</DialogTitle>
             <DialogDescription className='my-4'>
-              确定要删除分组 &quot;{deleteGroupTarget?.name}&quot; 吗？组内的项目将变为未分组状态。
+              确定要删除分组 &quot;{deleteGroupTarget?.name}&quot; 吗？组内的文件将变为未分组状态。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -669,7 +669,7 @@ export function ProjectsPage() {
       <Dialog open={!!moveProjectTarget} onOpenChange={() => setMoveProjectTarget(null)}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>移动项目到分组</DialogTitle>
+            <DialogTitle>移动文件到分组</DialogTitle>
           </DialogHeader>
           <div className="my-4 space-y-2">
             <button

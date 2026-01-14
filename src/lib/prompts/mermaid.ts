@@ -67,7 +67,10 @@ classDef storage fill:#f3e5f5,stroke:#9c27b0,stroke-width:1.5px,color:#4a148c;
 - **关键字避让**：不要使用 end, graph, flowchart 作为节点 ID。
 
 ## 输出要求
-- 仅输出 Mermaid 代码。
+- 响应结构必须包含两部分：
+  1. **画图计划**：包裹在 <plan>...</plan> 标签中，描述你的画图思路。
+  2. **Mermaid 代码**：在计划之后输出。
+- 仅输出 Mermaid 代码（在计划之后）。
 - 默认采用"圆角矩形 + 莫兰迪蓝橙配色 + 平滑曲线"组合。
 - 图表文本语言：中文
 `

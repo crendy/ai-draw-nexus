@@ -3,6 +3,7 @@ import {useNavigate, useParams} from 'react-router-dom'
 import {Check, ChevronLeft, ChevronRight, Code, Download, FileText, History, Image, Pencil, Save, X} from 'lucide-react'
 import {Button, Input, Loading} from '@/components/ui'
 import {AppSidebar} from '@/components/layout'
+import {ModelSelector} from '@/components/ai/ModelSelector'
 import {ChatPanel} from '@/features/chat/ChatPanel'
 import {CanvasArea, type CanvasAreaRef} from '@/features/editor/CanvasArea'
 import {VersionPanel} from '@/features/editor/VersionPanel'
@@ -10,6 +11,7 @@ import {useEditorStore} from '@/stores/editorStore'
 import {useChatStore} from '@/stores/chatStore'
 import {ProjectRepository} from '@/services/projectRepository'
 import {VersionRepository} from '@/services/versionRepository'
+import {authService} from '@/services/authService'
 import {generateThumbnail} from '@/lib/thumbnail'
 import {useToast} from '@/hooks/useToast'
 import {
@@ -21,7 +23,11 @@ import {
 } from '@/components/ui/Dropdown'
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,} from '@/components/ui/Tooltip'
 
-export function EditorPage() {
+interface EditorPageProps {
+  mode?: 'normal' | 'example'
+}
+
+export function EditorPage({ mode = 'normal' }: EditorPageProps) {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const [isVersionPanelOpen, setIsVersionPanelOpen] = useState(false)
@@ -45,12 +51,12 @@ export function EditorPage() {
   // Load project on mount
   useEffect(() => {
     if (!projectId) {
-      navigate('/projects')
+      navigate(mode === 'example' ? '/profile' : '/projects')
       return
     }
 
     loadProject(projectId)
-  }, [projectId])
+  }, [projectId, mode])
 
   const loadProject = async (id: string) => {
     setIsLoading(true)
@@ -58,23 +64,40 @@ export function EditorPage() {
     resetEditor()
     clearMessages()
     try {
-      const project = await ProjectRepository.getById(id)
-      if (!project) {
-        navigate('/projects')
-        return
-      }
+      if (mode === 'example') {
+        const project = await authService.getExampleProject(id)
+        if (!project) {
+          navigate('/profile')
+          return
+        }
+        // Convert ExampleProject to Project type (dates are strings in JSON)
+        const projectData = {
+          ...project,
+          createdAt: new Date(project.createdAt),
+          updatedAt: new Date(project.updatedAt)
+        }
+        setProject(projectData)
+        setEditedTitle(project.title)
+        setContentFromVersion(project.content)
+      } else {
+        const project = await ProjectRepository.getById(id)
+        if (!project) {
+          navigate('/projects')
+          return
+        }
 
-      setProject(project)
-      setEditedTitle(project.title)
+        setProject(project)
+        setEditedTitle(project.title)
 
-      // Load latest version content
-      const latestVersion = await VersionRepository.getLatest(id)
-      if (latestVersion) {
-        setContentFromVersion(latestVersion.content)
+        // Load latest version content
+        const latestVersion = await VersionRepository.getLatest(id)
+        if (latestVersion) {
+          setContentFromVersion(latestVersion.content)
+        }
       }
     } catch (error) {
       console.error('Failed to load project:', error)
-      navigate('/projects')
+      navigate(mode === 'example' ? '/profile' : '/projects')
     } finally {
       setIsLoading(false)
     }
@@ -103,7 +126,11 @@ export function EditorPage() {
     if (!currentProject || !editedTitle.trim()) return
 
     try {
-      await ProjectRepository.update(currentProject.id, { title: editedTitle.trim() })
+      if (mode === 'example') {
+        await authService.updateExampleProject(currentProject.id, { title: editedTitle.trim() })
+      } else {
+        await ProjectRepository.update(currentProject.id, { title: editedTitle.trim() })
+      }
       setProject({ ...currentProject, title: editedTitle.trim() })
       setIsEditingTitle(false)
       success('Title updated')
@@ -131,26 +158,57 @@ export function EditorPage() {
     if (!currentProject?.id || !currentContent) return
 
     try {
-      await VersionRepository.create({
-        projectId: currentProject.id,
-        content: currentContent,
-        changeSummary: '人工调整',
-      })
-      markAsSaved()
-
-      // Update thumbnail for drawio using native export
-      if (currentProject.engineType === 'drawio' && canvasRef.current) {
-        try {
-          const thumbnail = await canvasRef.current.getThumbnail()
-          if (thumbnail) {
-            await ProjectRepository.update(currentProject.id, { thumbnail })
+      if (mode === 'example') {
+        let thumbnail = currentProject.thumbnail
+        // Try to update thumbnail if possible
+        if (currentProject.engineType === 'drawio' && canvasRef.current) {
+          try {
+            const t = await canvasRef.current.getThumbnail()
+            if (t) thumbnail = t
+          } catch (err) {
+            console.error('Failed to generate thumbnail:', err)
           }
-        } catch (err) {
-          console.error('Failed to generate thumbnail:', err)
+        } else if (!thumbnail) {
+           try {
+             thumbnail = await generateThumbnail(currentContent, currentProject.engineType)
+           } catch (err) {
+             console.error('Failed to generate thumbnail:', err)
+           }
         }
-      }
 
-      success('版本已保存')
+        await authService.updateExampleProject(currentProject.id, {
+          content: currentContent,
+          thumbnail
+        })
+
+        if (thumbnail !== currentProject.thumbnail) {
+           setProject({ ...currentProject, thumbnail })
+        }
+
+        markAsSaved()
+        success('示例项目已保存')
+      } else {
+        await VersionRepository.create({
+          projectId: currentProject.id,
+          content: currentContent,
+          changeSummary: '人工调整',
+        })
+        markAsSaved()
+
+        // Update thumbnail for drawio using native export
+        if (currentProject.engineType === 'drawio' && canvasRef.current) {
+          try {
+            const thumbnail = await canvasRef.current.getThumbnail()
+            if (thumbnail) {
+              await ProjectRepository.update(currentProject.id, { thumbnail })
+            }
+          } catch (err) {
+            console.error('Failed to generate thumbnail:', err)
+          }
+        }
+
+        success('版本已保存')
+      }
     } catch (error) {
       console.error('Failed to save version:', error)
     }
@@ -171,7 +229,11 @@ export function EditorPage() {
       }
 
       if (thumbnail) {
-        await ProjectRepository.update(currentProject.id, { thumbnail })
+        if (mode === 'example') {
+          await authService.updateExampleProject(currentProject.id, { thumbnail })
+        } else {
+          await ProjectRepository.update(currentProject.id, { thumbnail })
+        }
         setProject({ ...currentProject, thumbnail })
       }
     } catch (err) {
@@ -241,6 +303,8 @@ export function EditorPage() {
               </div>
             )}
           </div>
+          <div className="h-4 w-px bg-border" />
+          <ModelSelector />
         </div>
 
         <div className="flex items-center gap-2">
@@ -302,21 +366,24 @@ export function EditorPage() {
             <Save className="mr-2 h-4 w-4" />
             保存
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsVersionPanelOpen(!isVersionPanelOpen)}
-          >
-            <History className="mr-2 h-4 w-4" />
-            历史版本
-          </Button>
+
+          {mode !== 'example' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsVersionPanelOpen(!isVersionPanelOpen)}
+            >
+              <History className="mr-2 h-4 w-4" />
+              历史版本
+            </Button>
+          )}
         </div>
       </header>
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Chat Panel */}
-        <div className={`flex-shrink-0 border-r border-border transition-all ${isChatPanelCollapsed ? 'w-10' : 'w-80'}`}>
+        <div className={`flex-shrink-0 border-r border-border transition-all ${isChatPanelCollapsed ? 'w-10' : 'w-96'}`}>
           <div className={isChatPanelCollapsed ? 'hidden' : 'h-full'}>
             <ChatPanel onCollapse={() => setIsChatPanelCollapsed(true)} />
           </div>
@@ -338,7 +405,7 @@ export function EditorPage() {
         <div className="relative flex-1">
           <CanvasArea ref={canvasRef} onReady={handleCanvasReady} />
           {/* Version Panel (floating) */}
-          {isVersionPanelOpen && (
+          {isVersionPanelOpen && mode !== 'example' && (
             <VersionPanel onClose={() => setIsVersionPanelOpen(false)} />
           )}
         </div>

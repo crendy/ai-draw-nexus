@@ -85,13 +85,13 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="rounded-2xl">
         <DialogHeader>
-          <DialogTitle>新建项目</DialogTitle>
+          <DialogTitle>新建文件</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <label className="mb-2 block text-sm font-medium">项目名称</label>
+            <label className="mb-2 block text-sm font-medium">文件名称</label>
             <Input
-              placeholder="请输入项目名称"
+              placeholder="请输入文件名称"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="rounded-xl"

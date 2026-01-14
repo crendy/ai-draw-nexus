@@ -1,8 +1,8 @@
-import { useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react'
-import { useEditorStore, selectEngineType } from '@/stores/editorStore'
-import { MermaidRenderer, type MermaidRendererRef } from '@/features/engines/mermaid/MermaidRenderer'
-import { ExcalidrawEditor, type ExcalidrawEditorRef } from '@/features/engines/excalidraw/ExcalidrawEditor'
-import { DrawioEditor, type DrawioEditorRef } from '@/features/engines/drawio/DrawioEditor'
+import {type ForwardedRef, forwardRef, useCallback, useEffect, useImperativeHandle, useRef} from 'react'
+import {selectEngineType, useEditorStore} from '@/stores/editorStore'
+import {MermaidRenderer, type MermaidRendererRef} from '@/features/engines/mermaid/MermaidRenderer'
+import {ExcalidrawEditor, type ExcalidrawEditorRef} from '@/features/engines/excalidraw/ExcalidrawEditor'
+import {DrawioEditor, type DrawioEditorRef} from '@/features/engines/drawio/DrawioEditor'
 
 export interface CanvasAreaRef {
   exportAsSvg: () => void
@@ -18,7 +18,8 @@ interface CanvasAreaProps {
   onReady?: () => void
 }
 
-export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function CanvasArea({ onReady }, ref) {
+export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function CanvasArea(props: CanvasAreaProps, ref: ForwardedRef<CanvasAreaRef>) {
+  const { onReady } = props
   const currentContent = useEditorStore((s) => s.currentContent)
   const currentProject = useEditorStore((s) => s.currentProject)
   const engineType = useEditorStore(selectEngineType)
@@ -31,9 +32,9 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
   const projectKey = currentProject?.id || 'no-project'
 
   // Refs for each engine
-  const mermaidRef = useRef<MermaidRendererRef>(null)
-  const excalidrawRef = useRef<ExcalidrawEditorRef>(null)
-  const drawioRef = useRef<DrawioEditorRef>(null)
+  const mermaidRef = useRef<MermaidRendererRef | null>(null)
+  const excalidrawRef = useRef<ExcalidrawEditorRef | null>(null)
+  const drawioRef = useRef<DrawioEditorRef | null>(null)
 
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
@@ -204,15 +205,7 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
     <div className="relative h-full w-full bg-background">
       {renderEngine()}
 
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-          <div className="text-center">
-            <div className="mb-2 h-8 w-8 animate-spin rounded-full border-2 border-primary border-r-transparent mx-auto" />
-            <p className="text-sm text-muted">Generating diagram...</p>
-          </div>
-        </div>
-      )}
+      {/* Loading Overlay removed as per user request */}
     </div>
   )
 })

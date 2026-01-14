@@ -50,6 +50,7 @@ const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
 const GROUPS_FILE = path.join(DATA_DIR, 'groups.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const EXAMPLE_PROJECTS_FILE = path.join(DATA_DIR, 'example-projects.json');
 const VERSIONS_DIR = path.join(DATA_DIR, 'versions');
 
 fs.ensureDirSync(VERSIONS_DIR);
@@ -136,6 +137,22 @@ async function getSettings() {
 
 async function saveSettings(settings) {
   await fs.writeJson(SETTINGS_FILE, settings, { spaces: 2 });
+}
+
+async function getExampleProjects() {
+  try {
+    if (await fs.pathExists(EXAMPLE_PROJECTS_FILE)) {
+      return await fs.readJson(EXAMPLE_PROJECTS_FILE);
+    }
+    return [];
+  } catch (err) {
+    console.error('Error reading example projects:', err);
+    return [];
+  }
+}
+
+async function saveExampleProjects(projects) {
+  await fs.writeJson(EXAMPLE_PROJECTS_FILE, projects, { spaces: 2 });
 }
 
 async function initializeAdmin() {
@@ -250,7 +267,7 @@ app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
 });
 
 app.put('/api/admin/users/:id/ai-config', authenticateToken, isAdmin, async (req, res) => {
-  const { useCustom, provider, baseUrl, apiKey, modelId } = req.body;
+  const { useCustom, provider, baseUrl, apiKey, modelId, providers, currentProviderId } = req.body;
   const users = await getUsers();
   const index = users.findIndex(u => u.id === req.params.id);
 
@@ -259,23 +276,18 @@ app.put('/api/admin/users/:id/ai-config', authenticateToken, isAdmin, async (req
   }
 
   const user = users[index];
-  const currentConfig = user.aiConfig || {};
 
   const newConfig = {
     useCustom,
+    // Keep legacy fields for backward compatibility or single mode
     provider,
     baseUrl,
     apiKey,
-    modelId
+    modelId,
+    // New fields for multiple providers
+    providers,
+    currentProviderId
   };
-
-  // Handle API Key masking logic
-  // if (newConfig.apiKey && currentConfig.apiKey) {
-  //   const isMasked = newConfig.apiKey.includes('******');
-  //   if (isMasked) {
-  //     newConfig.apiKey = currentConfig.apiKey;
-  //   }
-  // }
 
   users[index] = { ...user, aiConfig: newConfig };
   await saveUsers(users);
@@ -385,6 +397,104 @@ app.put('/api/admin/settings', authenticateToken, isAdmin, async (req, res) => {
   res.json(merged);
 });
 
+// Example Projects Routes
+app.get('/api/admin/example-projects', authenticateToken, isAdmin, async (req, res) => {
+  const projects = await getExampleProjects();
+  res.json(projects);
+});
+
+app.get('/api/admin/example-projects/:id', authenticateToken, isAdmin, async (req, res) => {
+  const projects = await getExampleProjects();
+  const project = projects.find(p => p.id === req.params.id);
+  if (project) res.json(project);
+  else res.status(404).json({ error: 'Example project not found' });
+});
+
+app.post('/api/admin/example-projects', authenticateToken, isAdmin, async (req, res) => {
+  const { title, engineType, content, thumbnail } = req.body;
+  if (!title || !engineType || content === undefined) {
+    return res.status(400).json({ error: 'Title, engineType and content are required' });
+  }
+
+  const projects = await getExampleProjects();
+  const newProject = {
+    id: uuidv4(),
+    title,
+    engineType,
+    content,
+    thumbnail: thumbnail || '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  projects.push(newProject);
+  await saveExampleProjects(projects);
+  res.status(201).json(newProject);
+});
+
+app.put('/api/admin/example-projects/reorder', authenticateToken, isAdmin, async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) {
+    return res.status(400).json({ error: 'IDs array is required' });
+  }
+
+  const projects = await getExampleProjects();
+
+  // Create a map for quick lookup
+  const projectMap = new Map(projects.map(p => [p.id, p]));
+
+  // Reorder based on ids
+  const newProjects = [];
+  for (const id of ids) {
+    if (projectMap.has(id)) {
+      newProjects.push(projectMap.get(id));
+      projectMap.delete(id);
+    }
+  }
+
+  // Append any remaining projects that weren't in the ids array (just in case)
+  for (const project of projectMap.values()) {
+    newProjects.push(project);
+  }
+
+  await saveExampleProjects(newProjects);
+  res.json(newProjects);
+});
+
+app.put('/api/admin/example-projects/:id', authenticateToken, isAdmin, async (req, res) => {
+  const { title, engineType, content, thumbnail } = req.body;
+  const projects = await getExampleProjects();
+  const index = projects.findIndex(p => p.id === req.params.id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'Example project not found' });
+  }
+
+  projects[index] = {
+    ...projects[index],
+    title: title || projects[index].title,
+    engineType: engineType || projects[index].engineType,
+    content: content !== undefined ? content : projects[index].content,
+    thumbnail: thumbnail !== undefined ? thumbnail : projects[index].thumbnail,
+    updatedAt: new Date().toISOString()
+  };
+
+  await saveExampleProjects(projects);
+  res.json(projects[index]);
+});
+
+app.delete('/api/admin/example-projects/:id', authenticateToken, isAdmin, async (req, res) => {
+  const projects = await getExampleProjects();
+  const newProjects = projects.filter(p => p.id !== req.params.id);
+
+  if (projects.length === newProjects.length) {
+    return res.status(404).json({ error: 'Example project not found' });
+  }
+
+  await saveExampleProjects(newProjects);
+  res.status(204).send();
+});
+
 // --- Auth Routes ---
 app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
@@ -402,6 +512,42 @@ app.post('/api/auth/register', async (req, res) => {
 
   users.push(user);
   await saveUsers(users);
+
+  // Copy example projects to new user
+  try {
+    const exampleProjects = await getExampleProjects();
+    if (exampleProjects.length > 0) {
+      const projects = await getProjects();
+
+      for (const example of exampleProjects) {
+        const newProjectId = uuidv4();
+        const newProject = {
+          id: newProjectId,
+          userId: user.id,
+          title: example.title,
+          engineType: example.engineType,
+          thumbnail: example.thumbnail,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        projects.push(newProject);
+
+        // Create initial version
+        const versions = [{
+          id: uuidv4(),
+          projectId: newProjectId,
+          content: example.content,
+          changeSummary: 'Initial (Example)',
+          timestamp: new Date().toISOString()
+        }];
+        await saveVersions(newProjectId, versions);
+      }
+      await saveProjects(projects);
+    }
+  } catch (err) {
+    console.error('Failed to copy example projects:', err);
+    // Don't fail registration if copying examples fails
+  }
 
   res.status(201).json({ message: 'User created successfully' });
 });
@@ -500,7 +646,7 @@ app.put('/api/auth/profile/nickname', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/auth/profile/ai-config', authenticateToken, async (req, res) => {
-  const { useCustom, provider, baseUrl, apiKey, modelId } = req.body;
+  const { useCustom, provider, baseUrl, apiKey, modelId, providers, currentProviderId } = req.body;
 
   const users = await getUsers();
   const index = users.findIndex(u => u.id === req.user.id);
@@ -510,23 +656,18 @@ app.put('/api/auth/profile/ai-config', authenticateToken, async (req, res) => {
   }
 
   const user = users[index];
-  const currentConfig = user.aiConfig || {};
 
   const newConfig = {
     useCustom,
+    // Keep legacy fields
     provider,
     baseUrl,
     apiKey,
-    modelId
+    modelId,
+    // New fields
+    providers,
+    currentProviderId
   };
-
-  // Handle API Key masking logic
-  // if (newConfig.apiKey && currentConfig.apiKey) {
-  //   const isMasked = newConfig.apiKey.includes('******');
-  //   if (isMasked) {
-  //     newConfig.apiKey = currentConfig.apiKey;
-  //   }
-  // }
 
   users[index] = { ...user, aiConfig: newConfig };
   await saveUsers(users);
@@ -928,10 +1069,27 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
 
     if (user && user.aiConfig && user.aiConfig.useCustom) {
       // Use user custom config
-      apiKey = user.aiConfig.apiKey;
-      apiBaseUrl = user.aiConfig.baseUrl;
-      modelId = user.aiConfig.modelId;
-      if (debug) console.log('[AI Service] Using user custom configuration');
+      if (user.aiConfig.providers && user.aiConfig.currentProviderId) {
+        const providerConfig = user.aiConfig.providers.find(p => p.id === user.aiConfig.currentProviderId);
+        if (providerConfig) {
+          apiKey = providerConfig.apiKey;
+          apiBaseUrl = providerConfig.baseUrl;
+          modelId = providerConfig.modelId;
+          if (debug) console.log(`[AI Service] Using user custom provider: ${providerConfig.name}`);
+        } else {
+          // Fallback to legacy fields if provider not found
+          apiKey = user.aiConfig.apiKey;
+          apiBaseUrl = user.aiConfig.baseUrl;
+          modelId = user.aiConfig.modelId;
+          if (debug) console.log('[AI Service] Custom provider not found, falling back to legacy config');
+        }
+      } else {
+        // Legacy single config
+        apiKey = user.aiConfig.apiKey;
+        apiBaseUrl = user.aiConfig.baseUrl;
+        modelId = user.aiConfig.modelId;
+        if (debug) console.log('[AI Service] Using user custom configuration (legacy)');
+      }
     } else {
       // Use system global config
       const settings = await getSettings();
@@ -1030,9 +1188,10 @@ if (fs.existsSync(distPath)) {
         const systemName = settings.system?.name || '智绘(AI Draw)';
         const showAbout = settings.system?.showAbout !== false; // Default true
         const defaultEngine = settings.system?.defaultEngine || 'drawio';
+        const defaultModelPrompt = settings.system?.defaultModelPrompt || '使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义';
 
         // Inject environment variables
-        const envScript = `<script>window._ENV_ = { DEBUG: ${process.env.DEBUG === 'true'}, SYSTEM_NAME: "${systemName}", SHOW_ABOUT: ${showAbout}, DEFAULT_ENGINE: "${defaultEngine}" };</script>`;
+        const envScript = `<script>window._ENV_ = { DEBUG: ${process.env.DEBUG === 'true'}, SYSTEM_NAME: "${systemName}", SHOW_ABOUT: ${showAbout}, DEFAULT_ENGINE: "${defaultEngine}", DEFAULT_MODEL_PROMPT: "${defaultModelPrompt}" };</script>`;
         html = html.replace('</head>', `${envScript}</head>`);
 
         // Update title

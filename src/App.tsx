@@ -1,6 +1,6 @@
 import {BrowserRouter, Route, Routes} from 'react-router-dom'
 import {Toaster, TooltipProvider} from '@/components/ui'
-import {AboutPage, EditorPage, HomePage, LoginPage, ProfilePage, ProjectsPage, RegisterPage} from '@/pages'
+import {AboutPage, AdminPage, EditorPage, HomePage, LoginPage, ProfilePage, ProjectsPage, RegisterPage} from '@/pages'
 import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
 
 function App() {
@@ -18,7 +18,9 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/editor/:projectId" element={<EditorPage />} />
+            <Route path="/editor/example/:projectId" element={<EditorPage mode="example" />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

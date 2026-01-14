@@ -109,6 +109,30 @@ export function getMimeTypeFromDataUrl(dataUrl: string): string {
 }
 
 /**
+ * Validate image dimensions from data URL
+ * @param dataUrl - Base64 data URL
+ * @param minWidth - Minimum width
+ * @param minHeight - Minimum height
+ */
+export function validateImageDimensions(
+  dataUrl: string,
+  minWidth: number,
+  minHeight: number
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      resolve(img.width >= minWidth && img.height >= minHeight)
+    }
+    img.onerror = () => {
+      // If image fails to load, consider it invalid
+      resolve(false)
+    }
+    img.src = dataUrl
+  })
+}
+
+/**
  * 解析 Word 文档
  */
 export async function parseWordDocument(file: File): Promise<string> {

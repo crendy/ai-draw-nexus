@@ -1,15 +1,4 @@
-import {
-  CassetteTape,
-  Database,
-  FolderOpen,
-  GitBranch,
-  Home,
-  Network,
-  Settings,
-  ShoppingCart,
-  Users,
-  Workflow
-} from 'lucide-react'
+import {Database, DiamondPercent, FolderOpen, GitBranch, Home, LayoutDashboard, Network, Settings} from 'lucide-react'
 import type {EngineType} from '@/types'
 
 export const ENGINES: { value: EngineType; label: string; description: string }[] = [
@@ -20,8 +9,9 @@ export const ENGINES: { value: EngineType; label: string; description: string }[
 
 export const NAV_ITEMS = [
   { icon: Home, label: '系统首页', path: '/' },
-  { icon: FolderOpen, label: '项目管理', path: '/projects' },
-  { icon: Settings, label: '系统设置', path: '/profile' },
+  { icon: FolderOpen, label: '文件管理', path: '/projects' },
+  { icon: Settings, label: '个人设置', path: '/profile' },
+  { icon: LayoutDashboard, label: '管理后台', path: '/admin', adminOnly: true },
   // { icon: CassetteTape, label: '关于我们', path: '/about' },
 ]
 
@@ -30,18 +20,24 @@ export const QUICK_ACTIONS = [
     label: '业务流程图',
     icon: GitBranch,
     engine: 'mermaid' as EngineType,
-    prompt: '请帮我绘制一个用户登录流程图，包含输入账号密码、验证、登录成功/失败等步骤'
+    prompt: '帮我创建一个用户登录流程图'
   },
   {
     label: '系统架构图',
     icon: Network,
     engine: 'drawio' as EngineType,
-    prompt: '请帮我绘制一个电商系统架构图，包含前端、后端、数据库、缓存、消息队列等组件'
+    prompt: '帮我创建一个商品系统架构图'
   },
   {
     label: '数据库ER图',
     icon: Database,
     engine: 'mermaid' as EngineType,
-    prompt: '请帮我绘制一个用户订单系统的ER图，包含用户表、订单表、商品表及其关系'
+    prompt: '帮我创建一个配送系统ER图'
+  },
+  {
+    label: '任意图形',
+    icon: DiamondPercent,
+    engine: 'mermaid' as EngineType,
+    prompt: '帮我画一只坐着的猫'
   },
 ]

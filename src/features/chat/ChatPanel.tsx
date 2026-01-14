@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react'
 import {Button, Loading} from '@/components/ui'
+import {ModelSelector} from '@/components/ai/ModelSelector'
 import {useChatStore} from '@/stores/chatStore'
 import {selectIsEmpty, useEditorStore} from '@/stores/editorStore'
 import {useAIGenerate} from '@/hooks/useAIGenerate'
@@ -31,6 +32,7 @@ import {
   validateImageFile,
 } from '@/lib/fileUtils'
 import type {Attachment, DocumentAttachment, ImageAttachment, UrlAttachment} from '@/types'
+import {CodeBlock, ThoughtBlock} from './MessageBlocks'
 
 type ChatPanelProps = {
   onCollapse?: () => void
@@ -43,12 +45,13 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [urlInputValue, setUrlInputValue] = useState('')
   const [isParsingUrl, setIsParsingUrl] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const hasHandledInitialPrompt = useRef(false)
 
   const { messages, isStreaming, initialPrompt, initialAttachments, clearInitialPrompt, clearMessages } = useChatStore()
   const isCanvasEmpty = useEditorStore(selectIsEmpty)
+  const currentProject = useEditorStore((s) => s.currentProject)
   const { generate, retryLast } = useAIGenerate()
   const { error: showError, success: showSuccess } = useToast()
 
@@ -282,6 +285,11 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
     }
   }
 
+  const getCodeLanguage = () => {
+    const engineType = currentProject?.engineType || 'drawio'
+    return engineType === 'mermaid' ? 'mermaid' : engineType === 'excalidraw' ? 'json' : 'xml'
+  }
+
   return (
       <div className="flex h-full flex-col bg-surface">
         {/* Header */}
@@ -349,7 +357,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               </div>
 
               {/* Content */}
-              <div className="flex items-start gap-1">
+              <div className="flex items-start gap-1 w-full max-w-[85%]">
                 {msg.role === 'user' && (
                   <Button
                     variant="ghost"
@@ -357,14 +365,14 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                     title="复制"
                     onClick={() => handleCopyUserMessage(msg.content)}
                     disabled={!msg.content?.trim()}
-                    className="h-7 w-7"
+                    className="h-7 w-7 flex-shrink-0"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
                 )}
 
                 <div
-                  className={`max-w-[80%] px-3 py-2 ${
+                  className={`w-full px-3 py-2 ${
                     msg.role === 'user'
                       ? 'bg-primary text-surface'
                       : 'border border-border bg-background'
@@ -396,23 +404,47 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                       ))}
                     </div>
                   )}
+
                   {/* AI消息使用状态板显示 */}
                   {msg.role === 'assistant' ? (
-                    <div className="flex flex-col gap-2">
-                      {msg.status === 'streaming' && msg.content && (
-                        <div className="text-xs text-muted-foreground border-l-2 border-primary/20 pl-2 py-1 mb-1 max-h-32 overflow-y-auto">
-                          {msg.content.split('\n').slice(-3).join('\n')}
-                        </div>
+                    <div className="flex flex-col gap-2 w-full">
+                      {/* Plan Section */}
+                      {msg.plan && (
+                        <ThoughtBlock
+                          content={msg.plan}
+                          duration={msg.metrics?.planEndTime && msg.metrics?.startTime ? (msg.metrics.planEndTime - msg.metrics.startTime) / 1000 : undefined}
+                          isStreaming={msg.status === 'streaming' && !msg.metrics?.planEndTime}
+                        />
                       )}
-                      <div className="flex items-center gap-2">
-                        {getStatusDisplay(msg.status).icon}
-                        <span className="text-sm">{getStatusDisplay(msg.status).text}</span>
-                      </div>
-                      {msg.status === 'complete' && (
-                        <div className="text-xs text-muted-foreground mt-1">
+
+                      {/* Code Section */}
+                      {msg.code && (
+                        <CodeBlock
+                          code={msg.code}
+                          language={getCodeLanguage()}
+                          isStreaming={msg.status === 'streaming'}
+                          duration={msg.metrics?.endTime && (msg.metrics.planEndTime || msg.metrics.startTime) ? (msg.metrics.endTime - (msg.metrics.planEndTime || msg.metrics.startTime)) / 1000 : undefined}
+                        />
+                      )}
+
+                      {/* Fallback / Raw Content */}
+                      {!msg.plan && !msg.code && (
+                        <div className="text-sm whitespace-pre-wrap">
                           {msg.content}
                         </div>
                       )}
+
+                      <div className="flex items-center gap-2 justify-between mt-1">
+                        <div className="flex items-center gap-2">
+                          {getStatusDisplay(msg.status).icon}
+                          <span className="text-sm">{getStatusDisplay(msg.status).text}</span>
+                        </div>
+                        {msg.metrics?.endTime && msg.metrics?.startTime && (
+                           <span className="text-xs text-muted-foreground">
+                             总耗时: {((msg.metrics.endTime - msg.metrics.startTime) / 1000).toFixed(1)}s
+                           </span>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -426,7 +458,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                     title="重新发送"
                     onClick={() => retryLast(msg.id)}
                     disabled={isStreaming || msg.status === 'streaming' || msg.status === 'pending'}
-                    className="h-7 w-7"
+                    className="h-7 w-7 flex-shrink-0"
                   >
                     <RotateCcw className="h-4 w-4" />
                   </Button>
@@ -570,6 +602,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               >
                 <Link className="h-4 w-4" />
               </Button>
+              <div className="h-3 w-[1px] bg-border mx-1" />
+              <ModelSelector />
               {isProcessingFile && (
                 <span className="flex items-center text-xs text-muted ml-2">
                   <Loading size="sm" className="mr-1" />

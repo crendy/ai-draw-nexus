@@ -60,6 +60,14 @@ export interface ChatMessage {
   status: 'pending' | 'streaming' | 'complete' | 'error'
   avatar?: string
   attachments?: Attachment[]
+  plan?: string
+  code?: string
+  metrics?: {
+    startTime: number
+    firstTokenTime?: number
+    planEndTime?: number
+    endTime?: number
+  }
 }
 
 // Payload Message (Message Payload Store - OpenAI compatible)

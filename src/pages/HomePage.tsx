@@ -1,8 +1,9 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
-import {Link, MoveRight, Paperclip, Send, Sparkles, X} from 'lucide-react'
+import {Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
 import {Button, Loading, Logo} from '@/components/ui'
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
+import {ModelSelector} from '@/components/ai/ModelSelector'
 import {QUICK_ACTIONS} from '@/constants'
 import {formatDate} from '@/lib/utils'
 import type {Attachment, DocumentAttachment, ImageAttachment, Project, UrlAttachment} from '@/types'
@@ -59,7 +60,7 @@ export function HomePage() {
   const loadRecentProjects = async () => {
     try {
       const projects = await ProjectRepository.getAll()
-      setRecentProjects(projects.slice(0, 5))
+      setRecentProjects(projects.slice(0, 6))
     } catch (error) {
       console.error('Failed to load projects:', error)
     }
@@ -295,7 +296,7 @@ export function HomePage() {
 
               <textarea
                 ref={textareaRef}
-                placeholder={`描述你想要绘制的图表，${systemName} 会帮你完成...（支持粘贴图片）`}
+                placeholder={`描述你想要绘制的图表...`}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -322,10 +323,10 @@ export function HomePage() {
                   <button
                     onClick={handleAttachmentClick}
                     className="group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-background hover:text-primary"
-                    title="可上传文档一键转化为图表，或上传截图复刻图表"
+                    title="上传文档（图片、PDF、文本）"
                   >
                     <Paperclip className="h-4 w-4" />
-                    <span>上传附件</span>
+                    <span>上传文件</span>
                     <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-primary px-3 py-2 text-xs text-surface opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                       可上传文档一键转化为图表，或上传截图复刻图表
                       <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-primary"></div>
@@ -393,7 +394,14 @@ export function HomePage() {
                     )}
                   </div>
 
-                  {/* 选择绘图引擎 - 已移至顶部导航栏 */}
+                  <div className="h-3 w-[1px] bg-border mx-1" />
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50 select-none">
+                    <Info className="h-3 w-3" />
+                    <span>支持粘贴图片</span>
+                  </div>
+
+                  <div className="h-3 w-[1px] bg-border mx-1" />
+                  <ModelSelector />
                 </div>
 
                 {/* 发送按钮 */}
@@ -415,22 +423,23 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="mb-8 w-full max-w-6xl">
-            <div className="rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-8">
-              <div className="mb-6 flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-medium text-primary">试试这些用例，快速开始</h2>
+          <div className="flex w-full max-w-6xl flex-col gap-6 pb-12 lg:flex-row">
+            {/* Quick Actions */}
+            <div className="w-full lg:w-[40%]">
+              <div className="h-full rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-6">
+                <div className="mb-4 flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    {/*<Sparkles className="h-5 w-5 text-primary" />*/}
+                    <h2 className="text-lg font-medium text-primary">快速开始</h2>
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {QUICK_ACTIONS.map((action, index) => (
+                <div className="grid grid-cols-2 gap-3">
+                {QUICK_ACTIONS.slice(0, 4).map((action, index) => (
                   <button
                     key={index}
                     onClick={() => handleQuickAction(action)}
                     disabled={isLoading}
-                    className="group relative flex h-36 flex-col justify-between rounded-2xl bg-background/80 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] disabled:opacity-50 border border-transparent hover:border-border/50"
+                    className="group relative flex h-32 flex-col justify-between rounded-2xl bg-background/80 p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] disabled:opacity-50 border border-transparent hover:border-border/50"
                   >
                     <p className="text-sm text-muted-foreground/80 line-clamp-3 leading-relaxed group-hover:text-muted-foreground">
                       {action.prompt}
@@ -447,17 +456,17 @@ export function HomePage() {
                     </div>
                   </button>
                 ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Recent Projects Section */}
-          <div className="w-full max-w-6xl pb-12">
-            <div className="rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-8">
-              <div className="mb-6 flex items-center justify-between px-1">
-                <h2 className="text-lg font-medium text-primary">最近项目</h2>
-              </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {/* Recent Projects Section */}
+            <div className="w-full lg:w-[60%]">
+              <div className="h-full rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-6">
+                <div className="mb-4 flex items-center justify-between px-1">
+                  <h2 className="text-lg font-medium text-primary">最近项目</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                 {/* Recent Projects */}
                 {recentProjects.map((project) => (
                   <button
@@ -470,18 +479,20 @@ export function HomePage() {
                         更新于 {formatDate(project.updatedAt)}
                       </div>
                     </div>
-                    <div className="flex h-24 items-center justify-center bg-background/50 p-6 border-b border-dashed border-border/60">
+                    <div className="flex h-16 items-center justify-center bg-background/50 p-3 border-b border-dashed border-border/60 overflow-hidden">
                       {project.thumbnail ? (
-                        <img
-                          src={project.thumbnail}
-                          alt={project.title}
-                          className="h-full w-full object-contain"
-                        />
+                        <div className="flex h-full w-full items-center justify-center">
+                          <img
+                            src={project.thumbnail}
+                            alt={project.title}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
                       ) : (
                         <Logo className="h-8 w-8 text-muted/50 group-hover:text-primary/50 transition-colors" />
                       )}
                     </div>
-                    <div className="p-4 text-left w-full bg-white">
+                    <div className="p-2.5 text-left w-full bg-white">
                       <div className="mb-1.5 flex items-center gap-2">
                         <p className="truncate text-sm font-medium text-primary/90 group-hover:text-primary pl-1">
                           {project.title === `Untitled-${project.id}`
@@ -506,6 +517,7 @@ export function HomePage() {
                     </div>
                   </button>
                 ))}
+                </div>
               </div>
             </div>
           </div>

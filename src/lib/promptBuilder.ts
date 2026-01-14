@@ -1,5 +1,5 @@
-import type { EngineType } from '@/types'
-import { mermaidSystemPrompt, drawioSystemPrompt, excalidrawSystemPrompt } from './prompts'
+import type {EngineType} from '@/types'
+import {drawioSystemPrompt, excalidrawSystemPrompt, mermaidSystemPrompt} from './prompts'
 
 /**
  * System prompts for different engines
@@ -72,7 +72,15 @@ ${currentCode}
 
 用户修改请求："""${userInput}"""
 
-根据用户修改请求进行修改，同时尽量保持原有结构不变。输出完整的修改后的图表代码。`
+根据用户修改请求进行修改。
+
+## 修改指南
+1. **全量输出**：必须输出包含所有原有元素的完整 XML 代码，严禁只输出修改部分。
+2. **文本格式**：确保所有包含文本的节点都有 \`whiteSpace=wrap;html=1;\` 样式。
+3. **布局保持**：对于未修改的部分，尽量保持原有的坐标和布局。
+4. **连线优化**：如果移动了节点，请确保连线（edge）路径重新路由，避免穿过节点。
+
+请输出 <plan>...</plan> 和完整的 XML 代码。`
 }
 
 /**
@@ -81,6 +89,12 @@ ${currentCode}
  */
 export function extractCode(response: string, _engineType: EngineType): string {
   let code = response.trim()
+
+  // Remove plan if present
+  const planMatch = code.match(/<plan>[\s\S]*?<\/plan>/)
+  if (planMatch) {
+    code = code.replace(planMatch[0], '').trim()
+  }
 
   // Remove markdown code blocks if present
   const codeBlockPatterns = [

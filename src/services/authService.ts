@@ -14,7 +14,18 @@ export interface SystemSettings {
     name?: string
     showAbout?: boolean
     defaultEngine?: EngineType
+    defaultModelPrompt?: string
   }
+}
+
+export interface ExampleProject {
+  id: string
+  title: string
+  engineType: EngineType
+  content: string
+  thumbnail: string
+  createdAt: string
+  updatedAt: string
 }
 
 export const authService = {
@@ -223,6 +234,69 @@ export const authService = {
     })
     if (!response.ok) throw new Error('Failed to validate password')
     return await response.json()
+  },
+
+  async getExampleProjects(): Promise<ExampleProject[]> {
+    const response = await fetch('/api/admin/example-projects', {
+      headers: this.getAuthHeader()
+    })
+    if (!response.ok) throw new Error('Failed to fetch example projects')
+    return await response.json()
+  },
+
+  async getExampleProject(id: string): Promise<ExampleProject> {
+    const response = await fetch(`/api/admin/example-projects/${id}`, {
+      headers: this.getAuthHeader()
+    })
+    if (!response.ok) throw new Error('Failed to fetch example project')
+    return await response.json()
+  },
+
+  async createExampleProject(project: Partial<ExampleProject>) {
+    const response = await fetch('/api/admin/example-projects', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader()
+      },
+      body: JSON.stringify(project)
+    })
+    if (!response.ok) throw new Error('Failed to create example project')
+    return await response.json()
+  },
+
+  async updateExampleProject(id: string, project: Partial<ExampleProject>) {
+    const response = await fetch(`/api/admin/example-projects/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader()
+      },
+      body: JSON.stringify(project)
+    })
+    if (!response.ok) throw new Error('Failed to update example project')
+    return await response.json()
+  },
+
+  async reorderExampleProjects(ids: string[]) {
+    const response = await fetch('/api/admin/example-projects/reorder', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader()
+      },
+      body: JSON.stringify({ ids })
+    })
+    if (!response.ok) throw new Error('Failed to reorder example projects')
+    return await response.json()
+  },
+
+  async deleteExampleProject(id: string) {
+    const response = await fetch(`/api/admin/example-projects/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeader()
+    })
+    if (!response.ok) throw new Error('Failed to delete example project')
   },
 
   async validateAIConfig(config: any) {

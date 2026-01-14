@@ -8,6 +8,8 @@ import {generateThumbnail} from '@/lib/thumbnail'
 import {aiService} from '@/services/aiService'
 import {validateContent} from '@/lib/validators'
 import {useToast} from '@/hooks/useToast'
+import {convertToLegalXml, parseResponse, replaceNodes, validateAndFixXml} from '@/lib/xmlUtils'
+import {validateImageDimensions} from '@/lib/fileUtils'
 import type {Attachment, ContentPart, EngineType, PayloadMessage} from '@/types'
 
 // Enable streaming by default, can be configured
@@ -15,6 +17,25 @@ const USE_STREAMING = true
 
 // Maximum retry attempts for Mermaid auto-fix
 const MAX_MERMAID_FIX_ATTEMPTS = 3
+
+// Throttle helper (ensures execution every wait ms during continuous calls)
+const throttle = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout | null = null
+  let lastArgs: any[] | null = null
+
+  return (...args: any[]) => {
+    lastArgs = args
+    if (!timeout) {
+      timeout = setTimeout(() => {
+        timeout = null
+        if (lastArgs) {
+          func(...lastArgs)
+          lastArgs = null
+        }
+      }, wait)
+    }
+  }
+}
 
 /**
  * Build multimodal content from text, attachments, and optional current thumbnail
@@ -37,10 +58,10 @@ function buildMultimodalContent(
   const parts: ContentPart[] = []
 
   // Add current thumbnail first for context (if available)
-  if (hasThumbnail) {
+  if (hasThumbnail && currentThumbnail) {
     parts.push({
       type: 'image_url',
-      image_url: { url: currentThumbnail },
+      image_url: { url: currentThumbnail! },
     })
   }
 
@@ -87,6 +108,7 @@ export function useAIGenerate() {
     currentProject,
     currentContent,
     setContentFromVersion,
+    setContent,
     setLoading,
     thumbnailGetter,
     setProject,
@@ -130,6 +152,70 @@ export function useAIGenerate() {
     setLoading(true)
     const startTime = Date.now()
 
+    // Metrics tracking
+    const metrics = {
+      startTime,
+      firstTokenTime: undefined as number | undefined,
+      planEndTime: undefined as number | undefined,
+      endTime: undefined as number | undefined,
+    }
+
+    // Track last processed XML to avoid redundant updates
+    let lastProcessedXml = ''
+
+    // Throttled editor updater for dynamic rendering
+    const throttledUpdate = throttle((code: string) => {
+      if (!code) return
+
+      // Disable dynamic rendering for Mermaid and Excalidraw
+      if (engineType === 'mermaid' || engineType === 'excalidraw') {
+        return
+      }
+
+      let codeToRender = code
+      // For drawio, try to fix incomplete XML
+      if (engineType === 'drawio') {
+        try {
+          console.log(`[ThrottledUpdate] Input length: ${code.length}`)
+          // Use convertToLegalXml for streaming updates to only include complete cells
+          // This avoids "invalid XML" errors from incomplete tags at the end of the stream
+          const convertedXml = convertToLegalXml(code)
+          console.log(`[ThrottledUpdate] Converted XML length: ${convertedXml.length}`)
+
+          // Optimization: Skip if XML hasn't changed (ignoring incomplete tail)
+          if (convertedXml === lastProcessedXml) {
+             console.log(`[ThrottledUpdate] XML unchanged, skipping`)
+             return
+          }
+          lastProcessedXml = convertedXml
+
+          // Use replaceNodes to merge with current content (preserves viewport)
+          // Get latest content from store directly to ensure we have the latest viewport state
+          const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
+          let mergedXml = replaceNodes(currentContent, convertedXml)
+
+          // Validate and fix the merged XML (crucial for stability)
+          mergedXml = validateAndFixXml(mergedXml)
+          console.log(`[ThrottledUpdate] Merged & Validated XML length: ${mergedXml.length}`)
+
+          codeToRender = mergedXml
+        } catch (error) {
+          console.error('[ThrottledUpdate] Error processing XML:', error)
+          return // Skip this update if processing fails
+        }
+      }
+
+      // Update editor content if we have something valid-ish
+      if (codeToRender && codeToRender.trim()) {
+        try {
+          console.log(`[ThrottledUpdate] Updating content`)
+          setContent(codeToRender)
+        } catch (error) {
+          console.error('[ThrottledUpdate] Error setting content:', error)
+        }
+      }
+    }, 150)
+
     try {
       let finalCode: string
 
@@ -151,11 +237,25 @@ export function useAIGenerate() {
             engineType,
             systemPrompt,
             assistantMsgId,
-            attachments
+            attachments,
+            metrics,
+            throttledUpdate
           )
         }
       } else {
         // Single-phase for edits - pass current thumbnail for context
+
+        // Validate thumbnail dimensions if present
+        let validThumbnail: string | undefined = currentProject.thumbnail || undefined
+        if (validThumbnail && validThumbnail.trim() !== '') {
+           // Check if it's a valid image and has minimum dimensions (28x28)
+           const isValid = await validateImageDimensions(validThumbnail, 28, 28)
+           if (!isValid) {
+             console.warn('Thumbnail too small or invalid, skipping')
+             validThumbnail = undefined
+           }
+        }
+
         finalCode = await singlePhaseGeneration(
           userInput,
           currentContent,
@@ -163,13 +263,23 @@ export function useAIGenerate() {
           systemPrompt,
           assistantMsgId,
           attachments,
-          currentProject.thumbnail
+          validThumbnail,
+          metrics,
+          throttledUpdate
         )
       }
 
       // Validate the generated content with auto-fix for Mermaid
       console.log('finalCode', finalCode)
       let validatedCode = finalCode
+
+      if (engineType === 'drawio') {
+        validatedCode = validateAndFixXml(validatedCode)
+        // Final merge to ensure viewport preservation
+        const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
+        validatedCode = replaceNodes(currentContent, validatedCode)
+      }
+
       let validation = await validateContent(validatedCode, engineType)
 
       // Auto-fix mechanism for Mermaid engine
@@ -195,10 +305,18 @@ export function useAIGenerate() {
       setContentFromVersion(finalCode)
 
       // Update assistant message
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+      metrics.endTime = Date.now()
+      const duration = ((metrics.endTime - metrics.startTime) / 1000).toFixed(1)
+
+      // Final update to ensure everything is synced
+      const { plan, code } = parseResponse(useChatStore.getState().messages.find(m => m.id === assistantMsgId)?.content || '')
+
       updateMessage(assistantMsgId, {
-        content: `Diagram generated successfully. (${duration}s)`,
+        content: useChatStore.getState().messages.find(m => m.id === assistantMsgId)?.content || '',
+        plan: plan || undefined,
+        code: finalCode, // Use validated code
         status: 'complete',
+        metrics
       })
 
       // Save version
@@ -209,17 +327,12 @@ export function useAIGenerate() {
       })
 
       // Generate and save thumbnail
-      // For drawio, use the registered thumbnailGetter from CanvasArea for accurate rendering
       try {
         let thumbnail: string = ''
         if (engineType === 'drawio') {
-          // For drawio, wait a bit for the editor to be ready after content update
-          // Then retry getting thumbnail with delay
           const getThumbnailWithRetry = async (maxRetries = 3, delay = 500): Promise<string> => {
             for (let i = 0; i < maxRetries; i++) {
-              // Wait for editor to process the new content
               await new Promise(resolve => setTimeout(resolve, delay))
-              // Get fresh thumbnailGetter from store
               const getter = useEditorStore.getState().thumbnailGetter
               if (getter) {
                 const result = await getter()
@@ -230,21 +343,17 @@ export function useAIGenerate() {
           }
           thumbnail = await getThumbnailWithRetry()
         } else {
-          // Use fallback method for other engines
           thumbnail = await generateThumbnail(finalCode, engineType)
         }
         if (thumbnail) {
           await ProjectRepository.update(currentProject.id, { thumbnail })
-          // Update currentProject in store so thumbnail is visible immediately
           setProject({ ...currentProject, thumbnail })
         }
       } catch (err) {
         console.error('Failed to generate thumbnail:', err)
       }
 
-      // Update project timestamp
       await ProjectRepository.update(currentProject.id, {})
-
       success('Diagram generated successfully')
 
     } catch (error) {
@@ -262,7 +371,6 @@ export function useAIGenerate() {
 
   /**
    * Retry the last AI request using the current payload context
-   * @param assistantMessageId - Optional existing assistant message to update in-place
    */
   const retryLast = async (assistantMessageId?: string) => {
     if (!currentProject) return
@@ -293,8 +401,62 @@ export function useAIGenerate() {
     setLoading(true)
     const startTime = Date.now()
 
+    const metrics = {
+      startTime,
+      firstTokenTime: undefined as number | undefined,
+      planEndTime: undefined as number | undefined,
+      endTime: undefined as number | undefined,
+    }
+
+    let lastProcessedXml = ''
+
+    const throttledUpdate = throttle((code: string) => {
+      if (!code) return
+
+      // Disable dynamic rendering for Mermaid and Excalidraw
+      if (engineType === 'mermaid' || engineType === 'excalidraw') {
+        return
+      }
+
+      let codeToRender = code
+      if (engineType === 'drawio') {
+        try {
+          console.log(`[ThrottledUpdate Retry] Input length: ${code.length}`)
+          // Use convertToLegalXml for streaming updates to only include complete cells
+          const convertedXml = convertToLegalXml(code)
+
+          // Optimization: Skip if XML hasn't changed
+          if (convertedXml === lastProcessedXml) {
+             console.log(`[ThrottledUpdate Retry] XML unchanged, skipping`)
+             return
+          }
+          lastProcessedXml = convertedXml
+
+          // Use replaceNodes to merge with current content (preserves viewport)
+          const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
+          let mergedXml = replaceNodes(currentContent, convertedXml)
+
+          // Validate and fix
+          mergedXml = validateAndFixXml(mergedXml)
+          console.log(`[ThrottledUpdate Retry] Merged & Validated XML length: ${mergedXml.length}`)
+
+          codeToRender = mergedXml
+        } catch (error) {
+          console.error('[ThrottledUpdate Retry] Error processing XML:', error)
+          return // Skip this update if processing fails
+        }
+      }
+      if (codeToRender && codeToRender.trim()) {
+        try {
+          console.log(`[ThrottledUpdate Retry] Updating content`)
+          setContent(codeToRender)
+        } catch (error) {
+          console.error('[ThrottledUpdate Retry] Error setting content:', error)
+        }
+      }
+    }, 150)
+
     try {
-      // Ensure payload panel stays in-sync with what we resend
       setMessages(payloadMessages)
 
       let response: string
@@ -302,9 +464,25 @@ export function useAIGenerate() {
         response = await aiService.streamChat(
           payloadMessages,
           (_chunk, accumulated) => {
+            if (!metrics.firstTokenTime) metrics.firstTokenTime = Date.now()
+
+            const { plan, code } = parseResponse(accumulated)
+
+            if (plan && !metrics.planEndTime && accumulated.includes('</plan>')) {
+              metrics.planEndTime = Date.now()
+            }
+
             updateMessage(assistantMsgId, {
-              content: `Retrying...\n\n${accumulated}`,
+              content: accumulated,
+              plan: plan || undefined,
+              code: code || undefined,
+              metrics: { ...metrics },
+              status: 'streaming'
             })
+
+            if (code) {
+               throttledUpdate(code)
+            }
           }
         )
       } else {
@@ -313,9 +491,16 @@ export function useAIGenerate() {
 
       let finalCode = extractCode(response, engineType)
 
-      // Validate the generated content with auto-fix for Mermaid
       let validatedCode = finalCode
+      if (engineType === 'drawio') {
+        validatedCode = validateAndFixXml(validatedCode)
+        // Final merge to ensure viewport preservation
+        const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
+        validatedCode = replaceNodes(currentContent, validatedCode)
+      }
+
       let validation = await validateContent(validatedCode, engineType)
+
       if (!validation.valid && engineType === 'mermaid') {
         validatedCode = await attemptMermaidAutoFix(
           validatedCode,
@@ -331,13 +516,14 @@ export function useAIGenerate() {
       }
 
       finalCode = validatedCode
-
       setContentFromVersion(finalCode)
 
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+      metrics.endTime = Date.now()
       updateMessage(assistantMsgId, {
-        content: `Diagram generated successfully. (${duration}s)`,
+        content: response,
+        code: finalCode,
         status: 'complete',
+        metrics
       })
 
       await VersionRepository.create({
@@ -437,7 +623,6 @@ export function useAIGenerate() {
       status: 'streaming',
     })
 
-    // Generate thumbnail from phase 1 elements for context
     let phase1Thumbnail: string | undefined
     try {
       phase1Thumbnail = await generateThumbnail(elements, engineType)
@@ -480,7 +665,9 @@ export function useAIGenerate() {
     engineType: EngineType,
     systemPrompt: string,
     assistantMsgId: string,
-    attachments?: Attachment[]
+    attachments?: Attachment[],
+    metrics?: any,
+    debouncedUpdate?: (code: string) => void
   ): Promise<string> => {
     updateMessage(assistantMsgId, {
       content: 'Generating diagram...',
@@ -501,9 +688,25 @@ export function useAIGenerate() {
       const response = await aiService.streamChat(
         messages,
         (_chunk, accumulated) => {
+          if (metrics && !metrics.firstTokenTime) metrics.firstTokenTime = Date.now()
+
+          const { plan, code } = parseResponse(accumulated)
+
+          if (metrics && plan && !metrics.planEndTime && accumulated.includes('</plan>')) {
+            metrics.planEndTime = Date.now()
+          }
+
           updateMessage(assistantMsgId, {
-            content: `Generating diagram...\n\n${accumulated}`,
+            content: accumulated,
+            plan: plan || undefined,
+            code: code || undefined,
+            metrics,
+            status: 'streaming'
           })
+
+          if (code && debouncedUpdate) {
+             debouncedUpdate(code)
+          }
         }
       )
       return extractCode(response, engineType)
@@ -515,7 +718,6 @@ export function useAIGenerate() {
 
   /**
    * Single-phase generation for edits
-   * @param currentThumbnail - Current diagram thumbnail for AI context
    */
   const singlePhaseGeneration = async (
     userInput: string,
@@ -524,7 +726,9 @@ export function useAIGenerate() {
     systemPrompt: string,
     assistantMsgId: string,
     attachments?: Attachment[],
-    currentThumbnail?: string
+    currentThumbnail?: string,
+    metrics?: any,
+    debouncedUpdate?: (code: string) => void
   ): Promise<string> => {
     const editPrompt = buildEditPrompt(currentCode, userInput)
     const editContent = buildMultimodalContent(editPrompt, attachments, currentThumbnail)
@@ -540,9 +744,25 @@ export function useAIGenerate() {
       const response = await aiService.streamChat(
         messages,
         (_chunk, accumulated) => {
+          if (metrics && !metrics.firstTokenTime) metrics.firstTokenTime = Date.now()
+
+          const { plan, code } = parseResponse(accumulated)
+
+          if (metrics && plan && !metrics.planEndTime && accumulated.includes('</plan>')) {
+            metrics.planEndTime = Date.now()
+          }
+
           updateMessage(assistantMsgId, {
-            content: `Modifying diagram...\n\n${accumulated}`,
+            content: accumulated,
+            plan: plan || undefined,
+            code: code || undefined,
+            metrics,
+            status: 'streaming'
           })
+
+          if (code && debouncedUpdate) {
+             debouncedUpdate(code)
+          }
         }
       )
       return extractCode(response, engineType)

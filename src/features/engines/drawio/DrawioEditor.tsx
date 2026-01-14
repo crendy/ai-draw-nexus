@@ -1,16 +1,11 @@
-import { useCallback, useImperativeHandle, useRef, useState, forwardRef, useEffect } from 'react'
-import { DrawIoEmbed } from 'react-drawio'
-import type { DrawIoEmbedRef, EventExport, EventSave, EventAutoSave } from 'react-drawio'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
+import {forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState} from 'react'
+import type {DrawIoEmbedRef, EventAutoSave, EventExport, EventSave} from 'react-drawio'
+import {DrawIoEmbed} from 'react-drawio'
+import {cn} from '@/lib/utils'
+import {Button} from '@/components/ui/Button'
 import Editor from '@monaco-editor/react'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/Tooltip'
-import { X, Copy, Check, Play, Undo2 } from 'lucide-react'
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,} from '@/components/ui/Tooltip'
+import {Check, Copy, Play, Undo2, X} from 'lucide-react'
 
 type ExportFormat = 'svg' | 'png'
 
@@ -46,6 +41,7 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
     const [copied, setCopied] = useState(false)
     const [editedCode, setEditedCode] = useState(data)
     const [hasChanges, setHasChanges] = useState(false)
+    const lastSavedXmlRef = useRef<string | null>(null)
 
     // 使用 ref 来跟踪导出请求，避免状态更新的时序问题
     const saveResolverRef = useRef<{
@@ -56,11 +52,28 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
     // 用于获取缩略图的 resolver
     const thumbnailResolverRef = useRef<((data: string) => void) | null>(null)
 
-    // Sync editedCode when data prop changes
+    // Sync editedCode and drawio content when data prop changes
     useEffect(() => {
       setEditedCode(data)
       setHasChanges(false)
-    }, [data])
+
+      // Explicitly load data into drawio when it changes
+      // This ensures updates from AI streaming are reflected immediately without iframe reload
+      if (isReady && drawioRef.current) {
+        // If data matches what we just saved, don't reload to avoid flicker/loop
+        if (data === lastSavedXmlRef.current) {
+          return
+        }
+
+        if (data) {
+          drawioRef.current.load({ xml: data })
+        } else {
+          // Load default empty graph to ensure editor is initialized
+          const emptyGraph = '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>'
+          drawioRef.current.load({ xml: emptyGraph })
+        }
+      }
+    }, [data, isReady])
 
     // Handle export event - 处理导出回调
     const handleExportCallback = useCallback((exportData: EventExport) => {
@@ -226,6 +239,7 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
     // Handle autosave event - 自动监听数值变化
     const handleAutoSave = useCallback((data: EventAutoSave) => {
       if (data.xml) {
+        lastSavedXmlRef.current = data.xml
         onChange?.(data.xml)
       }
     }, [onChange])
@@ -274,7 +288,6 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
         <div className={cn('relative h-full w-full', className)}>
           <DrawIoEmbed
             ref={drawioRef}
-            xml={data}
             baseUrl={DRAWIO_BASE_URL}
             onLoad={handleLoad}
             onAutoSave={handleAutoSave}

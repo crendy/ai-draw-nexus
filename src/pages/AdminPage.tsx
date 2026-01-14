@@ -1,0 +1,1082 @@
+import {useEffect, useState} from 'react'
+import {AppSidebar, CreateProjectDialog} from '@/components/layout'
+import {
+    Button,
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    Input,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui'
+import {authService, type ExampleProject} from '@/services/authService'
+import {useToast} from '@/hooks/useToast'
+import {Bot, Eye, EyeOff, FileCode, KeyRound, Pencil, Settings2, Trash2, User, Users} from 'lucide-react'
+import {useNavigate} from 'react-router-dom'
+import {useAuthStore} from '@/stores/authStore'
+import {useSystemStore} from '@/stores/systemStore'
+import {ENGINES} from '@/constants'
+import type {EngineType} from '@/types'
+
+export function AdminPage() {
+  const [activeTab, setActiveTab] = useState('users')
+  const user = useAuthStore((state) => state.user)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      navigate('/')
+    }
+  }, [user, navigate])
+
+  if (!user || user.role !== 'admin') {
+    return null
+  }
+
+  return (
+    <div className="flex h-screen bg-background overflow-hidden">
+      <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
+      <main className="flex flex-1 flex-col pl-[72px] h-full">
+        <div className="flex flex-1 w-full bg-background overflow-hidden">
+            <div className="flex h-full w-full">
+              {/* 左侧 Tab */}
+              <div className="w-64 border-r border-border bg-surface/50 p-4 overflow-y-auto">
+                <nav className="space-y-1">
+                  <button
+                    onClick={() => setActiveTab('users')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'users'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <Users className="h-4 w-4" />
+                    <span>用户管理</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('basic')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'basic'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                    <span>基础设置</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('llm')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'llm'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <Bot className="h-4 w-4" />
+                    <span>全局 LLM 模型</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('examples')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'examples'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <FileCode className="h-4 w-4" />
+                    <span>示例文件管理</span>
+                  </button>
+                </nav>
+              </div>
+
+              {/* 右侧内容区 */}
+              <div className="flex-1 bg-surface p-6 overflow-y-auto">
+                {activeTab === 'users' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">用户管理</h2>
+                    <UserManagement />
+                  </>
+                )}
+
+                {activeTab === 'basic' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">基础设置</h2>
+                    <BasicSettings />
+                  </>
+                )}
+
+                {activeTab === 'llm' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">全局 LLM 模型</h2>
+                    <LLMSettings />
+                  </>
+                )}
+
+                {activeTab === 'examples' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">示例文件管理</h2>
+                    <ExampleProjectsManagement />
+                  </>
+                )}
+              </div>
+            </div>
+        </div>
+      </main>
+
+      <CreateProjectDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+      />
+    </div>
+  )
+}
+
+interface AppUser {
+  id: string
+  username: string
+  role?: string
+  hasAccessPassword?: boolean
+  aiConfig?: {
+    useCustom?: boolean
+    provider?: string
+    baseUrl?: string
+    apiKey?: string
+    modelId?: string
+  }
+}
+
+function UserManagement() {
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const { success, error: showError } = useToast()
+  const currentUser = useAuthStore((state) => state.user)
+  const [selectedUserForConfig, setSelectedUserForConfig] = useState<AppUser | null>(null)
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState<AppUser | null>(null)
+  const [selectedUserForAccessPassword, setSelectedUserForAccessPassword] = useState<AppUser | null>(null)
+
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      const data = await authService.getUsers()
+      setUsers(data)
+    } catch (err) {
+      showError('加载用户列表失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRoleChange = async (userId: string, newRole: 'user' | 'admin') => {
+    try {
+      await authService.updateUserRole(userId, newRole)
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+      success('角色更新成功')
+    } catch (err) {
+      showError('角色更新失败')
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('确定要删除该用户吗？此操作不可恢复。')) return
+
+    try {
+      await authService.deleteUser(userId)
+      setUsers(users.filter(u => u.id !== userId))
+      success('用户已删除')
+    } catch (err) {
+      showError('删除用户失败')
+    }
+  }
+
+  const handleConfigSave = async (userId: string, config: any) => {
+    try {
+      await authService.adminUpdateUserAIConfig(userId, config)
+      setUsers(users.map(u => u.id === userId ? { ...u, aiConfig: config } : u))
+      success('用户配置已更新')
+      setSelectedUserForConfig(null)
+    } catch (err) {
+      showError('更新配置失败')
+    }
+  }
+
+  const handlePasswordReset = async (userId: string, password: string) => {
+    try {
+      await authService.adminResetUserPassword(userId, password)
+      success('密码重置成功')
+      setSelectedUserForPassword(null)
+    } catch (err) {
+      showError('密码重置失败')
+    }
+  }
+
+  const handleAccessPasswordSave = async (userId: string, password: string) => {
+    try {
+      await authService.adminUpdateUserAccessPassword(userId, password)
+      setUsers(users.map(u => u.id === userId ? { ...u, hasAccessPassword: !!password } : u))
+      success('访问密码已更新')
+      setSelectedUserForAccessPassword(null)
+    } catch (err) {
+      showError('更新访问密码失败')
+    }
+  }
+
+  if (loading) return <div>加载中...</div>
+
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <div className="p-4">
+        <div className="space-y-4">
+          {users.map((user) => (
+            <div
+              key={user.id}
+              className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <User className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-medium">
+                    {user.username}
+                    {user.id === currentUser?.id && (
+                      <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                        登录用户
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted">ID: {user.id}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted">角色:</span>
+                  <select
+                    value={user.role || 'user'}
+                    onChange={(e) => handleRoleChange(user.id, e.target.value as 'user' | 'admin')}
+                    disabled={user.id === currentUser?.id}
+                    className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setSelectedUserForConfig(user)}
+                  >
+                    LLM设置
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-7 px-2 text-xs ${user.hasAccessPassword ? "text-primary border-primary/30 bg-primary/5" : "text-muted-foreground"}`}
+                    onClick={() => setSelectedUserForAccessPassword(user)}
+                  >
+                    {user.hasAccessPassword ? "修改访问密码" : "设置访问密码"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    title="重置密码"
+                    onClick={() => setSelectedUserForPassword(user)}
+                  >
+                    <KeyRound className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => handleDeleteUser(user.id)}
+                    disabled={user.id === currentUser?.id}
+                    title={user.id === currentUser?.id ? '不能删除自己' : '删除用户'}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {selectedUserForConfig && (
+        <AdminUserAIConfigDialog
+          open={!!selectedUserForConfig}
+          onOpenChange={(open) => !open && setSelectedUserForConfig(null)}
+          user={selectedUserForConfig}
+          onSave={handleConfigSave}
+        />
+      )}
+
+      {selectedUserForPassword && (
+        <AdminResetPasswordDialog
+          open={!!selectedUserForPassword}
+          onOpenChange={(open) => !open && setSelectedUserForPassword(null)}
+          user={selectedUserForPassword}
+          onSave={handlePasswordReset}
+        />
+      )}
+
+      {selectedUserForAccessPassword && (
+        <AdminAccessPasswordDialog
+          open={!!selectedUserForAccessPassword}
+          onOpenChange={(open) => !open && setSelectedUserForAccessPassword(null)}
+          user={selectedUserForAccessPassword}
+          onSave={handleAccessPasswordSave}
+        />
+      )}
+    </div>
+  )
+}
+
+interface AdminUserAIConfigDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user: AppUser
+  onSave: (userId: string, config: any) => Promise<void>
+}
+
+function AdminUserAIConfigDialog({ open, onOpenChange, user, onSave }: AdminUserAIConfigDialogProps) {
+  const [mode, setMode] = useState<'password' | 'custom'>('password')
+  const [provider, setProvider] = useState('openai')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [modelId, setModelId] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (open && user.aiConfig) {
+      setMode(user.aiConfig.useCustom ? 'custom' : 'password')
+      setProvider(user.aiConfig.provider || 'openai')
+      setBaseUrl(user.aiConfig.baseUrl || '')
+      setApiKey(user.aiConfig.apiKey || '')
+      setModelId(user.aiConfig.modelId || '')
+    } else {
+      // Reset to defaults
+      setMode('password')
+      setProvider('openai')
+      setBaseUrl('')
+      setApiKey('')
+      setModelId('')
+    }
+  }, [open, user])
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await onSave(user.id, {
+        useCustom: mode === 'custom',
+        provider,
+        baseUrl,
+        apiKey,
+        modelId
+      })
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>用户 LLM 配置 - {user.username}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <div className="mb-6 flex gap-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="admin-ai-mode"
+                checked={mode === 'password'}
+                onChange={() => setMode('password')}
+                className="h-4 w-4 text-primary"
+              />
+              <span className="text-sm">使用系统默认</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="admin-ai-mode"
+                checked={mode === 'custom'}
+                onChange={() => setMode('custom')}
+                className="h-4 w-4 text-primary"
+              />
+              <span className="text-sm">自定义模型</span>
+            </label>
+          </div>
+
+          {mode === 'custom' && (
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">API类型</label>
+                <select
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value)}
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="openai">OpenAI</option>
+                  <option value="azure">Azure OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="custom">Custom (OpenAI Compatible)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">API地址</label>
+                <Input
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="https://api.openai.com/v1"
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">API Key</label>
+                <div className="relative">
+                  <Input
+                    type={showKey ? 'text' : 'password'}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="rounded-xl pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                  >
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">模型 ID</label>
+                <Input
+                  value={modelId}
+                  onChange={(e) => setModelId(e.target.value)}
+                  placeholder="gpt-3.5-turbo"
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+            取消
+          </Button>
+          <Button onClick={handleSave} disabled={loading} className="rounded-full">
+            {loading ? '保存中...' : '保存配置'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface AdminResetPasswordDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user: AppUser
+  onSave: (userId: string, password: string) => Promise<void>
+}
+
+function AdminResetPasswordDialog({ open, onOpenChange, user, onSave }: AdminResetPasswordDialogProps) {
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const { error: showError } = useToast()
+
+  useEffect(() => {
+    if (!open) setPassword('')
+  }, [open])
+
+  const handleSave = async () => {
+    if (password.length < 6) {
+      showError('密码长度不能少于6位')
+      return
+    }
+    setLoading(true)
+    try {
+      await onSave(user.id, password)
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>重置密码 - {user.username}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <div className="relative">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="输入新密码"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            重置后，用户需要使用新密码登录。
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+            取消
+          </Button>
+          <Button onClick={handleSave} disabled={loading} className="rounded-full">
+            {loading ? '重置中...' : '确认重置'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface AdminAccessPasswordDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user: AppUser
+  onSave: (userId: string, accessPassword: string) => Promise<void>
+}
+
+function AdminAccessPasswordDialog({ open, onOpenChange, user, onSave }: AdminAccessPasswordDialogProps) {
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const { error: showError } = useToast()
+
+  useEffect(() => {
+    if (!open) setPassword('')
+  }, [open])
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await onSave(user.id, password)
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>设置访问密码 - {user.username}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <div className="relative">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="输入访问密码（留空则清除）"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            设置后，用户需在 AI 设置中输入此密码以使用系统默认模型。
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+            取消
+          </Button>
+          <Button onClick={handleSave} disabled={loading} className="rounded-full">
+            {loading ? '保存中...' : '确认保存'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+
+function ExampleProjectsManagement() {
+  const [projects, setProjects] = useState<ExampleProject[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const { success, error: showError } = useToast()
+  const navigate = useNavigate()
+  const [draggedItem, setDraggedItem] = useState<ExampleProject | null>(null)
+
+  useEffect(() => {
+    loadProjects()
+  }, [])
+
+  const loadProjects = async () => {
+    try {
+      const data = await authService.getExampleProjects()
+      setProjects(data)
+    } catch (err) {
+      showError('加载示例文件失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('确定要删除该示例文件吗？')) return
+    try {
+      await authService.deleteExampleProject(id)
+      setProjects(projects.filter(p => p.id !== id))
+      success('删除成功')
+    } catch (err) {
+      showError('删除失败')
+    }
+  }
+
+  const handleDragStart = (e: React.DragEvent, item: ExampleProject) => {
+    setDraggedItem(item)
+    e.dataTransfer.effectAllowed = 'move'
+    // Optional: Set drag image
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (!draggedItem) return
+
+    const draggedIndex = projects.findIndex(p => p.id === draggedItem.id)
+    if (draggedIndex === index) return
+
+    const newProjects = [...projects]
+    const [item] = newProjects.splice(draggedIndex, 1)
+    newProjects.splice(index, 0, item)
+    setProjects(newProjects)
+  }
+
+  const handleDragEnd = async () => {
+    setDraggedItem(null)
+    try {
+      const ids = projects.map(p => p.id)
+      await authService.reorderExampleProjects(ids)
+    } catch (err) {
+      showError('保存排序失败')
+    }
+  }
+
+  if (loading) return <div>加载中...</div>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted">
+          这些文件将在新用户注册时自动复制到其文件列表中（仅复制前6个）。
+        </div>
+        <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
+          新增示例文件
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {projects.map((project, index) => (
+          <div
+            key={project.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, project)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragEnd={handleDragEnd}
+            className={`group relative overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md cursor-move ${
+              draggedItem?.id === project.id ? 'opacity-50' : ''
+            }`}
+          >
+            <div className="h-32 w-full bg-muted/50 p-2">
+              {project.thumbnail ? (
+                <img src={project.thumbnail} alt={project.title} className="h-full w-full object-contain" />
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted">
+                  No Preview
+                </div>
+              )}
+            </div>
+            <div className="p-2">
+              <div className="font-medium truncate text-sm">{project.title}</div>
+              <div className="text-xs text-muted mt-0.5">{project.engineType}</div>
+            </div>
+            <div className="absolute right-1 top-1 opacity-0 transition-opacity group-hover:opacity-100 flex gap-1">
+              <Button size="icon" variant="secondary" className="h-6 w-6" onClick={() => navigate(`/editor/example/${project.id}`)}>
+                <Pencil className="h-3 w-3" />
+              </Button>
+              <Button size="icon" variant="destructive" className="h-6 w-6" onClick={() => handleDelete(project.id)}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <CreateExampleProjectDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+      />
+    </div>
+  )
+}
+
+function CreateExampleProjectDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
+  const navigate = useNavigate()
+  const [title, setTitle] = useState('未命名示例')
+  const [engineType, setEngineType] = useState<EngineType>('drawio')
+  const [loading, setLoading] = useState(false)
+  const { success, error: showError } = useToast()
+
+  useEffect(() => {
+    if (open) {
+      setTitle('未命名示例')
+      setEngineType('drawio')
+    }
+  }, [open])
+
+  const handleCreate = async () => {
+    if (!title.trim()) return
+    setLoading(true)
+    try {
+      const project = await authService.createExampleProject({
+        title: title.trim(),
+        engineType,
+        content: '',
+        thumbnail: ''
+      })
+      success('创建成功')
+      onOpenChange(false)
+      navigate(`/editor/example/${project.id}`)
+    } catch (err) {
+      showError('创建失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl max-w-md">
+        <DialogHeader>
+          <DialogTitle>新增示例文件</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium">文件标题</label>
+            <Input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="输入标题"
+              className="rounded-xl"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">绘图引擎</label>
+            <Select value={engineType} onValueChange={(v) => setEngineType(v as EngineType)}>
+              <SelectTrigger className="w-full rounded-xl">
+                <SelectValue placeholder="选择引擎" />
+              </SelectTrigger>
+              <SelectContent>
+                {ENGINES.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">取消</Button>
+          <Button onClick={handleCreate} disabled={loading} className="rounded-full">{loading ? '创建中...' : '创建'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function BasicSettings() {
+  const [systemName, setSystemName] = useState('')
+  const [showAbout, setShowAbout] = useState(true)
+  const [defaultEngine, setDefaultEngine] = useState<EngineType>('drawio')
+  const [defaultModelPrompt, setDefaultModelPrompt] = useState('')
+  const [aiSettings, setAiSettings] = useState<any>({})
+
+  const [loading, setLoading] = useState(false)
+  const { success, error: showError } = useToast()
+  const setGlobalSystemName = useSystemStore((state) => state.setSystemName)
+  const setGlobalShowAbout = useSystemStore((state) => state.setShowAbout)
+  const setGlobalDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
+  const setGlobalDefaultModelPrompt = useSystemStore((state) => state.setDefaultModelPrompt)
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      const settings = await authService.getSystemSettings()
+      if (settings.system) {
+        setSystemName(settings.system.name || 'AI Draw')
+        setShowAbout(settings.system.showAbout !== false)
+        setDefaultEngine(settings.system.defaultEngine || 'drawio')
+        setDefaultModelPrompt(settings.system.defaultModelPrompt || '使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义')
+      } else {
+        setSystemName('AI Draw')
+        setShowAbout(true)
+        setDefaultEngine('drawio')
+        setDefaultModelPrompt('使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义')
+      }
+
+      if (settings.ai) {
+        setAiSettings(settings.ai)
+      }
+    } catch (err) {
+      showError('加载配置失败')
+    }
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await authService.updateSystemSettings({
+        system: {
+          name: systemName,
+          showAbout,
+          defaultEngine,
+          defaultModelPrompt
+        },
+        ai: aiSettings
+      })
+      setGlobalSystemName(systemName)
+      setGlobalShowAbout(showAbout)
+      setGlobalDefaultEngine(defaultEngine)
+      setGlobalDefaultModelPrompt(defaultModelPrompt)
+      document.title = systemName
+      success('基础配置已保存')
+    } catch (err) {
+      showError('保存配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">系统名称</label>
+        <Input
+          value={systemName}
+          onChange={(e) => setSystemName(e.target.value)}
+          placeholder="AI Draw"
+          className="rounded-xl"
+        />
+        <p className="mt-2 text-xs text-muted">
+          设置系统的显示名称，将显示在浏览器标题、登录页和首页等位置。
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">默认绘图引擎</label>
+        <select
+          value={defaultEngine}
+          onChange={(e) => setDefaultEngine(e.target.value as EngineType)}
+          className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+        >
+          {ENGINES.map((engine) => (
+            <option key={engine.value} value={engine.value}>
+              {engine.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-2 text-xs text-muted">
+          设置系统默认的绘图引擎，新用户或重置后将使用此引擎。
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">系统默认模型提示信息</label>
+        <Input
+          value={defaultModelPrompt}
+          onChange={(e) => setDefaultModelPrompt(e.target.value)}
+          placeholder="使用服务端配置的模型..."
+          className="rounded-xl"
+        />
+        <p className="mt-2 text-xs text-muted">
+          设置用户在选择系统默认模型时看到的提示信息。
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="showAbout"
+          checked={showAbout}
+          onChange={(e) => setShowAbout(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+        />
+        <label htmlFor="showAbout" className="text-sm font-medium text-muted cursor-pointer">
+          显示"关于"菜单
+        </label>
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <Button onClick={handleSave} disabled={loading} className="rounded-full">
+          {loading ? '保存中...' : '保存配置'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function LLMSettings() {
+  const [provider, setProvider] = useState('openai')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [modelId, setModelId] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [systemSettings, setSystemSettings] = useState<any>({})
+
+  const [loading, setLoading] = useState(false)
+  const { success, error: showError } = useToast()
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      const settings = await authService.getSystemSettings()
+      if (settings.ai) {
+        setProvider(settings.ai.provider || 'openai')
+        setBaseUrl(settings.ai.baseUrl || '')
+        setApiKey(settings.ai.apiKey || '')
+        setModelId(settings.ai.modelId || '')
+      }
+      if (settings.system) {
+        setSystemSettings(settings.system)
+      }
+    } catch (err) {
+      showError('加载配置失败')
+    }
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await authService.updateSystemSettings({
+        system: systemSettings,
+        ai: {
+          provider,
+          baseUrl,
+          apiKey,
+          modelId
+        }
+      })
+      success('LLM配置已保存')
+    } catch (err) {
+      showError('保存配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">API类型</label>
+        <select
+          value={provider}
+          onChange={(e) => setProvider(e.target.value)}
+          className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="openai">OpenAI</option>
+          <option value="azure">Azure OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="custom">Custom (OpenAI Compatible)</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">API地址</label>
+        <Input
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          placeholder="https://api.openai.com/v1"
+          className="rounded-xl"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">API Key</label>
+        <div className="relative">
+          <Input
+            type={showKey ? 'text' : 'password'}
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="sk-..."
+            className="rounded-xl pr-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowKey(!showKey)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+          >
+            {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">模型 ID</label>
+        <Input
+          value={modelId}
+          onChange={(e) => setModelId(e.target.value)}
+          placeholder="gpt-3.5-turbo"
+          className="rounded-xl"
+        />
+      </div>
+
+      <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
+        <p>配置全局 LLM API 后，所有用户使用默认服务器都使用此配置，每日有10次限额。</p>
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <Button onClick={handleSave} disabled={loading} className="rounded-full">
+          {loading ? '保存中...' : '保存配置'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+

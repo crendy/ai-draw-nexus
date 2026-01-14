@@ -39,7 +39,7 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
         <button
           onClick={onCreateProject}
           className="group mb-6 flex flex-col items-center justify-center gap-1"
-          title="新建项目"
+          title="新建文件"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-border bg-background transition-all group-hover:border-primary group-hover:text-primary">
             <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
@@ -52,6 +52,8 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
       <nav className="flex flex-1 flex-col items-center gap-4 w-full px-2">
         {NAV_ITEMS.map((item, index) => {
           if (item.path === '/about' && !showAbout) return null
+          // @ts-ignore
+          if (item.adminOnly && user?.role !== 'admin') return null
 
           const isActive = location.pathname === item.path
 
