@@ -3,7 +3,6 @@ import {useNavigate, useParams} from 'react-router-dom'
 import {Check, ChevronLeft, ChevronRight, Code, Download, FileText, History, Image, Pencil, Save, X} from 'lucide-react'
 import {Button, Input, Loading} from '@/components/ui'
 import {AppSidebar} from '@/components/layout'
-import {ModelSelector} from '@/components/ai/ModelSelector'
 import {ChatPanel} from '@/features/chat/ChatPanel'
 import {CanvasArea, type CanvasAreaRef} from '@/features/editor/CanvasArea'
 import {VersionPanel} from '@/features/editor/VersionPanel'
@@ -304,7 +303,6 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
             )}
           </div>
           <div className="h-4 w-px bg-border" />
-          <ModelSelector />
         </div>
 
         <div className="flex items-center gap-2">

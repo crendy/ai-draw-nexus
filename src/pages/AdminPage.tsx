@@ -24,7 +24,9 @@ import {ENGINES} from '@/constants'
 import type {EngineType} from '@/types'
 
 export function AdminPage() {
-  const [activeTab, setActiveTab] = useState('users')
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('admin_active_tab') || 'users'
+  })
   const user = useAuthStore((state) => state.user)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const navigate = useNavigate()
@@ -34,6 +36,10 @@ export function AdminPage() {
       navigate('/')
     }
   }, [user, navigate])
+
+  useEffect(() => {
+    localStorage.setItem('admin_active_tab', activeTab)
+  }, [activeTab])
 
   if (!user || user.role !== 'admin') {
     return null
@@ -640,6 +646,7 @@ function ExampleProjectsManagement() {
   const { success, error: showError } = useToast()
   const navigate = useNavigate()
   const [draggedItem, setDraggedItem] = useState<ExampleProject | null>(null)
+  const [previewProject, setPreviewProject] = useState<ExampleProject | null>(null)
 
   useEffect(() => {
     loadProjects()
@@ -721,7 +728,10 @@ function ExampleProjectsManagement() {
               draggedItem?.id === project.id ? 'opacity-50' : ''
             }`}
           >
-            <div className="h-32 w-full bg-muted/50 p-2">
+            <div
+              className="h-32 w-full bg-background/50 p-2 border-b border-dashed border-border/60 cursor-pointer"
+              onClick={() => setPreviewProject(project)}
+            >
               {project.thumbnail ? (
                 <img src={project.thumbnail} alt={project.title} className="h-full w-full object-contain" />
               ) : (
@@ -750,6 +760,50 @@ function ExampleProjectsManagement() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
+
+      {/* Project Preview Dialog */}
+      <Dialog open={!!previewProject} onOpenChange={() => setPreviewProject(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+          <div className="relative flex flex-col items-center justify-center">
+            <div className="relative w-full bg-white rounded-lg overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-center bg-white p-8 min-h-[400px]">
+                {previewProject?.thumbnail ? (
+                  <img
+                    src={previewProject.thumbnail}
+                    alt={previewProject.title}
+                    className="max-w-full max-h-[60vh] object-contain shadow-lg rounded-md"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-muted-foreground">
+                    <div className="h-24 w-24 opacity-20 mb-4 flex items-center justify-center">
+                      <FileCode className="h-full w-full" />
+                    </div>
+                    <p>暂无预览图</p>
+                  </div>
+                )}
+              </div>
+              <div className="bg-white p-6 flex items-center justify-between border-t border-border">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-semibold text-primary">{previewProject?.title}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {previewProject?.engineType}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    if (previewProject) {
+                      navigate(`/editor/example/${previewProject.id}`)
+                    }
+                  }}
+                  className="rounded-full px-6"
+                >
+                  编辑模版
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -166,7 +166,7 @@ export function ModelSelector({ className }: ModelSelectorProps) {
       <Button
         variant="outline"
         size="sm"
-        className={`gap-2 h-8 rounded-full bg-background/50 backdrop-blur-sm border-border/50 hover:bg-background hover:border-primary/30 transition-all ${className}`}
+        className={`gap-2 h-8 rounded-full bg-background/50 backdrop-blur-sm border-border/50 hover:bg-muted/50 hover:border-primary/30 transition-all ${className}`}
         onClick={() => setIsOpen(true)}
       >
         <div className="flex items-center gap-1.5">
@@ -179,7 +179,7 @@ export function ModelSelector({ className }: ModelSelectorProps) {
           )}
           <ScrollableText
             text={getCurrentModelName()}
-            className="text-xs font-medium w-[100px]"
+            className="text-xs font-medium w-[70px]"
           />
         </div>
         <ChevronDown className="h-3 w-3 text-muted-foreground opacity-50 shrink-0" />
@@ -187,19 +187,19 @@ export function ModelSelector({ className }: ModelSelectorProps) {
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 gap-0 overflow-hidden rounded-xl">
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border pr-12">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="搜索模型..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 border-none bg-muted/30 focus-visible:ring-0 rounded-lg"
+                className="pl-9 border border-border/50 bg-white focus-visible:ring-0 rounded-lg h-9"
               />
             </div>
           </div>
 
-          <div className="max-h-[400px] overflow-y-auto p-2">
+          <div className="h-[400px] overflow-y-auto p-2">
             {/* System Default */}
             {(!searchQuery || '系统默认'.includes(searchQuery) || '服务器默认'.includes(searchQuery)) && (
               <div className="mb-2">

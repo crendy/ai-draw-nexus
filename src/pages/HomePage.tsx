@@ -1,10 +1,10 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
-import {Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
-import {Button, Loading, Logo} from '@/components/ui'
+import {Edit, Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
+import {Button, Dialog, DialogContent, Loading, Logo} from '@/components/ui'
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {ModelSelector} from '@/components/ai/ModelSelector'
-import {QUICK_ACTIONS} from '@/constants'
+import {QUICK_ACTION_ROWS, QUICK_ACTIONS} from '@/constants'
 import {formatDate} from '@/lib/utils'
 import type {Attachment, DocumentAttachment, ImageAttachment, Project, UrlAttachment} from '@/types'
 import {ProjectRepository} from '@/services/projectRepository'
@@ -21,6 +21,67 @@ import {
   validateDocumentFile,
   validateImageFile,
 } from '@/lib/fileUtils'
+
+const MarqueeRow = ({ items, direction = 'left', speed = 40 }: { items: typeof QUICK_ACTIONS, direction?: 'left' | 'right', speed?: number }) => {
+  return (
+    <div className="relative flex overflow-hidden w-full">
+      <div
+        className={`flex gap-4 py-2 animate-marquee-${direction} w-max`}
+        style={{
+          animationDuration: `${speed}s`,
+        }}
+      >
+        {[...items, ...items, ...items, ...items].map((action, index) => (
+          <button
+            key={`${action.label}-${index}`}
+            onClick={() => {
+              // Need to access handleQuickAction from parent scope or pass it down
+              // For simplicity, we'll just dispatch a custom event or use a prop if we were inside the component
+              // But since this is outside, let's just make it a render prop or pass the handler
+              // Actually, let's move this component inside HomePage or pass the handler
+            }}
+            // We will handle onClick in the usage below by passing the handler
+            data-action-index={index % items.length}
+            className="group relative flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-sm border border-border/50 transition-all hover:shadow-md hover:border-primary/20 flex-shrink-0 whitespace-nowrap"
+          >
+            {action.image ? (
+              <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-muted/20">
+                <img src={action.image} alt={action.label} className="h-full w-full object-cover" />
+              </div>
+            ) : (
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-primary/5 text-primary`}>
+                <action.icon className="h-4 w-4" />
+              </div>
+            )}
+            <span className="text-sm font-medium text-gray-900">
+              {action.prompt}
+            </span>
+          </button>
+        ))}
+      </div>
+      <style>{`
+        @keyframes marquee-left {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-25%); }
+        }
+        @keyframes marquee-right {
+          0% { transform: translateX(-25%); }
+          100% { transform: translateX(0); }
+        }
+        .animate-marquee-left {
+          animation: marquee-left linear infinite;
+        }
+        .animate-marquee-right {
+          animation: marquee-right linear infinite;
+        }
+        .animate-marquee-left:hover,
+        .animate-marquee-right:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
+    </div>
+  )
+}
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -44,6 +105,8 @@ export function HomePage() {
   // 新建项目弹窗状态
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
+  const [previewProject, setPreviewProject] = useState<Project | null>(null)
+
   useEffect(() => {
     loadRecentProjects()
   }, [])
@@ -60,7 +123,7 @@ export function HomePage() {
   const loadRecentProjects = async () => {
     try {
       const projects = await ProjectRepository.getAll()
-      setRecentProjects(projects.slice(0, 6))
+      setRecentProjects(projects.slice(0, 4))
     } catch (error) {
       console.error('Failed to load projects:', error)
     }
@@ -172,8 +235,31 @@ export function HomePage() {
   }
 
   const handleQuickAction = async (action: (typeof QUICK_ACTIONS)[0]) => {
-    // setDefaultEngine(action.engine) // Don't switch engine
     setPrompt(action.prompt)
+
+    // 如果有图片，自动添加为附件（替换现有图片）
+    if (action.image) {
+      try {
+        setIsLoading(true)
+        const response = await fetch(action.image)
+        const blob = await response.blob()
+        const fileName = action.image.split('/').pop() || 'image.png'
+        const file = new File([blob], fileName, { type: blob.type })
+
+        // 过滤掉现有的图片附件，保留非图片附件（如果需要完全替换所有附件，可以直接 setAttachments([file])）
+        // 这里假设只替换图片，保留文档等其他类型附件
+        setAttachments(prev => {
+          const nonImageAttachments = prev.filter(f => !f.type.startsWith('image/'))
+          return [...nonImageAttachments, file]
+        })
+      } catch (error) {
+        console.error('Failed to load image attachment:', error)
+        showError('加载示例图片失败')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     // 自动聚焦到输入框
     if (textareaRef.current) {
       textareaRef.current.focus()
@@ -252,51 +338,62 @@ export function HomePage() {
           </div>
 
           {/* Chat Input Box */}
-          <div className="mb-6 w-full max-w-2xl">
-            <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition-shadow focus-within:shadow-md">
-              {/* 附件预览区域 */}
-              {(attachments.length > 0 || urlAttachments.length > 0) && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {attachments.map((file, index) => (
-                    <div
-                      key={`file-${index}`}
-                      className="flex items-center gap-2 rounded-lg bg-background px-3 py-1.5 text-sm"
+          <div className="mb-6 w-full max-w-2xl relative">
+            {/* 附件预览区域 - 移到输入框上方 */}
+            {(attachments.length > 0 || urlAttachments.length > 0) && (
+              <div className="absolute bottom-full left-0 mb-2 flex flex-wrap gap-2 px-1">
+                {attachments.map((file, index) => (
+                  <div
+                    key={`file-${index}`}
+                    className="group relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+                  >
+                    {file.type.startsWith('image/') ? (
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={file.name}
+                        className="h-full w-full object-cover"
+                        onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-1 text-center">
+                        <Paperclip className="h-6 w-6 text-muted-foreground" />
+                        <span className="mt-1 w-full truncate text-[10px] text-muted-foreground">
+                          {file.name.split('.').pop()}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => removeAttachment(index)}
+                      className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
                     >
-                      <Paperclip className="h-3 w-3 text-muted" />
-                      <span className="max-w-[150px] truncate text-primary">
-                        {file.name}
-                      </span>
-                      <button
-                        onClick={() => removeAttachment(index)}
-                        className="text-muted hover:text-primary"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  {urlAttachments.map((urlAtt, index) => (
-                    <div
-                      key={`url-${index}`}
-                      className="flex items-center gap-2 rounded-lg bg-background px-3 py-1.5 text-sm"
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                {urlAttachments.map((urlAtt, index) => (
+                  <div
+                    key={`url-${index}`}
+                    className="group relative flex h-16 w-16 flex-col items-center justify-center overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-sm"
+                  >
+                    <Link className="h-6 w-6 text-muted-foreground" />
+                    <span className="mt-1 w-full truncate text-center text-[10px] text-muted-foreground">
+                      LINK
+                    </span>
+                    <button
+                      onClick={() => removeUrlAttachment(index)}
+                      className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
                     >
-                      <Link className="h-3 w-3 text-muted" />
-                      <span className="max-w-[150px] truncate text-primary">
-                        {urlAtt.title}
-                      </span>
-                      <button
-                        onClick={() => removeUrlAttachment(index)}
-                        className="text-muted hover:text-primary"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
+            <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition-shadow focus-within:shadow-md">
               <textarea
                 ref={textareaRef}
-                placeholder={`描述你想要绘制的图表...`}
+                placeholder={`输入你的想法，开始创作吧...`}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -425,7 +522,7 @@ export function HomePage() {
 
           <div className="flex w-full max-w-6xl flex-col gap-6 pb-12 lg:flex-row">
             {/* Quick Actions */}
-            <div className="w-full lg:w-[40%]">
+            <div className="w-full lg:w-[60%]">
               <div className="h-full rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-6">
                 <div className="mb-4 flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
@@ -433,53 +530,145 @@ export function HomePage() {
                     <h2 className="text-lg font-medium text-primary">快速开始</h2>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                {QUICK_ACTIONS.slice(0, 4).map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleQuickAction(action)}
-                    disabled={isLoading}
-                    className="group relative flex h-32 flex-col justify-between rounded-2xl bg-background/80 p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] disabled:opacity-50 border border-transparent hover:border-border/50"
-                  >
-                    <p className="text-sm text-muted-foreground/80 line-clamp-3 leading-relaxed group-hover:text-muted-foreground">
-                      {action.prompt}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                        index % 3 === 0 ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' :
-                        index % 3 === 1 ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' :
-                        'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'
-                      }`}>
-                        <action.icon className="h-3.5 w-3.5" />
-                        <span>{action.label}</span>
-                      </div>
+                <div className="flex flex-col gap-4 overflow-hidden">
+                  {/* Row 1: Left */}
+                  <div className="relative flex overflow-hidden w-full">
+                    <div className="flex gap-4 py-2 animate-marquee-left w-max" style={{ animationDuration: '60s' }}>
+                      {(() => {
+                        const group = QUICK_ACTION_ROWS[0]
+                        const items = [...group, ...group, ...group, ...group]
+                        return items.map((action, index) => (
+                        <button
+                          key={`r1-${index}`}
+                          onClick={() => handleQuickAction(action)}
+                          disabled={isLoading}
+                          className="group relative flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-sm border border-border/50 transition-all hover:shadow-md hover:border-primary/20 flex-shrink-0 whitespace-nowrap"
+                        >
+                          {action.image && (
+                            <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-background/50 border border-border/60 p-1">
+                              <img src={action.image} alt={action.label} className="h-full w-full object-contain" />
+                            </div>
+                          )}
+                          <span className="text-sm font-medium text-gray-900 mt-0.5">
+                            {action.prompt}
+                          </span>
+                        </button>
+                      ))})()}
                     </div>
-                  </button>
-                ))}
+                  </div>
+
+                  {/* Row 2: Right */}
+                  <div className="relative flex overflow-hidden w-full">
+                    <div className="flex gap-4 py-2 animate-marquee-right w-max" style={{ animationDuration: '70s' }}>
+                      {(() => {
+                        const group = QUICK_ACTION_ROWS[1]
+                        const items = [...group, ...group, ...group, ...group]
+                        return items.map((action, index) => (
+                        <button
+                          key={`r2-${index}`}
+                          onClick={() => handleQuickAction(action)}
+                          disabled={isLoading}
+                          className="group relative flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-sm border border-border/50 transition-all hover:shadow-md hover:border-primary/20 flex-shrink-0 whitespace-nowrap"
+                        >
+                          {action.image && (
+                            <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-background/50 border border-border/60 p-1">
+                              <img src={action.image} alt={action.label} className="h-full w-full object-contain" />
+                            </div>
+                          )}
+                          <span className="text-sm font-medium text-gray-900 mt-0.5">
+                            {action.prompt}
+                          </span>
+                        </button>
+                      ))})()}
+                    </div>
+                  </div>
+
+                  {/* Row 3: Left */}
+                  <div className="relative flex overflow-hidden w-full">
+                    <div className="flex gap-4 py-2 animate-marquee-left w-max" style={{ animationDuration: '80s' }}>
+                      {(() => {
+                        const group = QUICK_ACTION_ROWS[2]
+                        const items = [...group, ...group, ...group, ...group]
+                        return items.map((action, index) => (
+                        <button
+                          key={`r3-${index}`}
+                          onClick={() => handleQuickAction(action)}
+                          disabled={isLoading}
+                          className="group relative flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-sm border border-border/50 transition-all hover:shadow-md hover:border-primary/20 flex-shrink-0 whitespace-nowrap"
+                        >
+                          {action.image && (
+                            <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-background/50 border border-border/60 p-1">
+                              <img src={action.image} alt={action.label} className="h-full w-full object-contain" />
+                            </div>
+                          )}
+                          <span className="text-sm font-medium text-gray-900 mt-0.5">
+                            {action.prompt}
+                          </span>
+                        </button>
+                      ))})()}
+                    </div>
+                  </div>
+
+                  <style>{`
+                    @keyframes marquee-left {
+                      0% { transform: translateX(0); }
+                      100% { transform: translateX(-25%); }
+                    }
+                    @keyframes marquee-right {
+                      0% { transform: translateX(-25%); }
+                      100% { transform: translateX(0); }
+                    }
+                    .animate-marquee-left {
+                      animation: marquee-left linear infinite;
+                    }
+                    .animate-marquee-right {
+                      animation: marquee-right linear infinite;
+                    }
+                    .animate-marquee-left:hover,
+                    .animate-marquee-right:hover {
+                      animation-play-state: paused;
+                    }
+                  `}</style>
                 </div>
               </div>
             </div>
 
             {/* Recent Projects Section */}
-            <div className="w-full lg:w-[60%]">
+            <div className="w-full lg:w-[40%]">
               <div className="h-full rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-6">
                 <div className="mb-4 flex items-center justify-between px-1">
-                  <h2 className="text-lg font-medium text-primary">最近项目</h2>
+                  <div>
+                    <h2 className="text-lg font-medium text-primary">最近文件</h2>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                <div className="grid grid-cols-2 gap-4">
                 {/* Recent Projects */}
-                {recentProjects.map((project) => (
+                {recentProjects.slice(0, 4).map((project) => (
                   <button
                     key={project.id}
-                    onClick={() => navigate(`/editor/${project.id}`)}
+                    onClick={() => setPreviewProject(project)}
+                    onDoubleClick={() => navigate(`/editor/${project.id}`)}
                     className="group relative flex flex-col overflow-hidden rounded-2xl bg-background/80 transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent hover:border-border/50"
                   >
+                    <div className="absolute left-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-8 w-8 rounded-full bg-surface/90 shadow-sm backdrop-blur-sm hover:bg-surface"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/editor/${project.id}`)
+                        }}
+                      >
+                        <Edit className="h-4 w-4 text-primary" />
+                      </Button>
+                    </div>
                     <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <div className="rounded-md bg-surface/90 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
                         更新于 {formatDate(project.updatedAt)}
                       </div>
                     </div>
-                    <div className="flex h-16 items-center justify-center bg-background/50 p-3 border-b border-dashed border-border/60 overflow-hidden">
+                    <div className="flex h-20 items-center justify-center bg-background/50 p-3 border-b border-dashed border-border/60 overflow-hidden">
                       {project.thumbnail ? (
                         <div className="flex h-full w-full items-center justify-center">
                           <img
@@ -529,6 +718,48 @@ export function HomePage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
+
+      {/* Project Preview Dialog */}
+      <Dialog open={!!previewProject} onOpenChange={() => setPreviewProject(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+          <div className="relative flex flex-col items-center justify-center">
+            <div className="relative w-full bg-white rounded-lg overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-center bg-white p-8 min-h-[400px]">
+                {previewProject?.thumbnail ? (
+                  <img
+                    src={previewProject.thumbnail}
+                    alt={previewProject.title}
+                    className="max-w-full max-h-[60vh] object-contain shadow-lg rounded-md"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-muted-foreground">
+                    <Logo className="h-24 w-24 opacity-20 mb-4" />
+                    <p>暂无预览图</p>
+                  </div>
+                )}
+              </div>
+              <div className="bg-white p-6 flex items-center justify-between border-t border-border">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-semibold text-primary">{previewProject?.title}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    更新于 {previewProject && formatDate(previewProject.updatedAt)}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    if (previewProject) {
+                      navigate(`/editor/${previewProject.id}`)
+                    }
+                  }}
+                  className="rounded-full px-6"
+                >
+                  进入编辑
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

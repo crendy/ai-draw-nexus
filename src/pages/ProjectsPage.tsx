@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useState} from 'react'
 import {useLocation, useNavigate} from 'react-router-dom'
-import {Folder, FolderOpen, MoreVertical, Plus, Search, Sparkles, Upload} from 'lucide-react'
+import {Edit, Folder, FolderOpen, MoreVertical, Plus, Search, Sparkles, Upload} from 'lucide-react'
 import {
   Button,
   Dialog,
@@ -63,6 +63,8 @@ export function ProjectsPage() {
   const [moveProjectTarget, setMoveProjectTarget] = useState<Project | null>(null)
   const [targetGroupId, setTargetGroupId] = useState<string>('')
   const [isMovingProject, setIsMovingProject] = useState(false)
+
+  const [previewProject, setPreviewProject] = useState<Project | null>(null)
 
   // Load data
   useEffect(() => {
@@ -407,8 +409,24 @@ export function ProjectsPage() {
                   <div
                     key={project.id}
                     className="group relative cursor-pointer overflow-hidden rounded-2xl bg-background/80 transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent hover:border-border/50"
-                    onClick={() => navigate(`/editor/${project.id}`)}
+                    onClick={() => setPreviewProject(project)}
+                    onDoubleClick={() => navigate(`/editor/${project.id}`)}
                   >
+                    {/* Edit Button - 左上角 */}
+                    <div className="absolute left-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-8 w-8 rounded-full bg-surface/90 shadow-sm backdrop-blur-sm hover:bg-surface"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/editor/${project.id}`)
+                        }}
+                      >
+                        <Edit className="h-4 w-4 text-primary" />
+                      </Button>
+                    </div>
+
                     {/* Action Buttons - 右上角 */}
                     <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <div className="flex items-center rounded-md bg-surface/90 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
@@ -714,6 +732,48 @@ export function ProjectsPage() {
               {isMovingProject ? '移动中...' : '移动'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Project Preview Dialog */}
+      <Dialog open={!!previewProject} onOpenChange={() => setPreviewProject(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+          <div className="relative flex flex-col items-center justify-center">
+            <div className="relative w-full bg-white rounded-lg overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-center bg-white p-8 min-h-[400px]">
+                {previewProject?.thumbnail ? (
+                  <img
+                    src={previewProject.thumbnail}
+                    alt={previewProject.title}
+                    className="max-w-full max-h-[60vh] object-contain shadow-lg rounded-md"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-muted-foreground">
+                    <Logo className="h-24 w-24 opacity-20 mb-4" />
+                    <p>暂无预览图</p>
+                  </div>
+                )}
+              </div>
+              <div className="bg-white p-6 flex items-center justify-between border-t border-border">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-semibold text-primary">{previewProject?.title}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    更新于 {previewProject && formatDate(previewProject.updatedAt)}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    if (previewProject) {
+                      navigate(`/editor/${previewProject.id}`)
+                    }
+                  }}
+                  className="rounded-full px-6"
+                >
+                  进入编辑
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

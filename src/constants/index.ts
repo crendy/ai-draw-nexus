@@ -15,29 +15,76 @@ export const NAV_ITEMS = [
   // { icon: CassetteTape, label: '关于我们', path: '/about' },
 ]
 
-export const QUICK_ACTIONS = [
-  {
-    label: '业务流程图',
-    icon: GitBranch,
-    engine: 'mermaid' as EngineType,
-    prompt: '帮我创建一个用户登录流程图'
-  },
-  {
-    label: '系统架构图',
-    icon: Network,
-    engine: 'drawio' as EngineType,
-    prompt: '帮我创建一个商品系统架构图'
-  },
-  {
-    label: '数据库ER图',
-    icon: Database,
-    engine: 'mermaid' as EngineType,
-    prompt: '帮我创建一个配送系统ER图'
-  },
-  {
-    label: '任意图形',
-    icon: DiamondPercent,
-    engine: 'mermaid' as EngineType,
-    prompt: '帮我画一只坐着的猫'
-  },
+export const QUICK_ACTION_ROWS = [
+  [
+    {
+      label: '业务流程图',
+      icon: GitBranch,
+      engine: 'drawio' as EngineType,
+      prompt: '创建一个用户登录流程图，使用动画线条',
+      image: ''
+    },
+    {
+      label: '系统架构图',
+      icon: Network,
+      engine: 'drawio' as EngineType,
+      prompt: '绘制一个商品系统架构图',
+      image: ''
+    },
+    {
+      label: '数据库ER图',
+      icon: Database,
+      engine: 'drawio' as EngineType,
+      prompt: '绘制一个配送系统ER图',
+      image: ''
+    },
+  ],
+  [
+    {
+      label: '复刻流程图',
+      icon: DiamondPercent,
+      engine: 'mermaid' as EngineType,
+      prompt: '复刻这个流程图',
+      image: '/quick-start-example-1.png'
+    },
+    {
+      label: '复刻流程图',
+      icon: DiamondPercent,
+      engine: 'mermaid' as EngineType,
+      prompt: '修改此图为mermaind风格',
+      image: '/quick-start-example-1.png'
+    },
+    {
+      label: '复刻流程图',
+      icon: DiamondPercent,
+      engine: 'mermaid' as EngineType,
+      prompt: '修改此图为手绘风格',
+      image: '/quick-start-example-1.png'
+    },
+  ],
+  [
+    {
+      label: '任意图形',
+      icon: DiamondPercent,
+      engine: 'mermaid' as EngineType,
+      prompt: '画一只猫在敲代码',
+      image: ''
+    },
+    {
+      label: '任意图形',
+      icon: DiamondPercent,
+      engine: 'mermaid' as EngineType,
+      prompt: '画一个ide终端',
+      image: ''
+    },
+    {
+      label: '思维导图',
+      icon: DiamondPercent,
+      engine: 'mermaid' as EngineType,
+      prompt: '绘制一个思维导图',
+      image: ''
+    },
+  ]
 ]
+
+export const QUICK_ACTIONS = QUICK_ACTION_ROWS.flat()
