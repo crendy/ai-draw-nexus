@@ -244,6 +244,26 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+const optionalAuthenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return next();
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      // If token is invalid, we can either fail or proceed as anonymous.
+      // For now, let's proceed as anonymous but maybe log it.
+      if (process.env.DEBUG === 'true') console.log('[Auth] Invalid token in optional auth, proceeding as anonymous');
+      return next();
+    }
+    req.user = user;
+    next();
+  });
+};
+
 const isAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
     next();
@@ -251,6 +271,36 @@ const isAdmin = (req, res, next) => {
     res.status(403).json({ error: 'Admin access required' });
   }
 };
+
+// --- Public Routes ---
+app.get('/api/settings/public', async (req, res) => {
+  try {
+    const settings = await getSettings();
+    const publicSettings = {
+      system: settings.system,
+      notifications: settings.notifications,
+      allowRegister: settings.system?.allowRegister !== false, // Default true
+      ai: {
+        // Only expose non-sensitive AI config if needed, e.g. modelId
+        modelId: settings.ai?.modelId
+      }
+    };
+    res.json(publicSettings);
+  } catch (err) {
+    console.error('Error fetching public settings:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/public/example-projects', async (req, res) => {
+  try {
+    const projects = await getExampleProjects();
+    res.json(projects);
+  } catch (err) {
+    console.error('Error fetching example projects:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
 
 // --- Admin Routes ---
 app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
@@ -500,6 +550,12 @@ app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
+  }
+
+  // Check if registration is allowed
+  const settings = await getSettings();
+  if (settings.system?.allowRegister === false) {
+    return res.status(403).json({ error: '管理员已关闭注册功能，请联系管理员' });
   }
 
   const users = await getUsers();
@@ -933,7 +989,7 @@ app.delete('/api/projects/:id/versions', authenticateToken, async (req, res) => 
 
 // --- AI Proxy ---
 // Parse URL content
-app.post('/api/parse-url', authenticateToken, async (req, res) => {
+app.post('/api/parse-url', optionalAuthenticateToken, async (req, res) => {
   try {
     const { url } = req.body;
 
@@ -1042,7 +1098,7 @@ app.post('/api/parse-url', authenticateToken, async (req, res) => {
 });
 
 // Forward chat requests to the AI provider
-app.post('/api/chat', authenticateToken, async (req, res) => {
+app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
   const startTime = Date.now();
   const debug = process.env.DEBUG === 'true';
   if (debug) {
@@ -1062,43 +1118,77 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
 
     // Check if we have API keys in environment variables
     // First check user specific config
-    const users = await getUsers();
-    const user = users.find(u => u.id === req.user.id);
-
     let apiKey, apiBaseUrl, modelId;
 
-    if (user && user.aiConfig && user.aiConfig.useCustom) {
-      // Use user custom config
-      if (user.aiConfig.providers && user.aiConfig.currentProviderId) {
-        const providerConfig = user.aiConfig.providers.find(p => p.id === user.aiConfig.currentProviderId);
-        if (providerConfig) {
-          apiKey = providerConfig.apiKey;
-          apiBaseUrl = providerConfig.baseUrl;
-          modelId = providerConfig.modelId;
-          if (debug) console.log(`[AI Service] Using user custom provider: ${providerConfig.name}`);
+    if (req.user) {
+      const users = await getUsers();
+      const user = users.find(u => u.id === req.user.id);
+
+      if (user && user.aiConfig && user.aiConfig.useCustom) {
+        // Use user custom config
+        if (user.aiConfig.providers && user.aiConfig.currentProviderId) {
+          const providerConfig = user.aiConfig.providers.find(p => p.id === user.aiConfig.currentProviderId);
+          if (providerConfig) {
+            apiKey = providerConfig.apiKey;
+            apiBaseUrl = providerConfig.baseUrl;
+            modelId = providerConfig.modelId;
+            if (debug) console.log(`[AI Service] Using user custom provider: ${providerConfig.name}`);
+          } else {
+            // Fallback to legacy fields if provider not found
+            apiKey = user.aiConfig.apiKey;
+            apiBaseUrl = user.aiConfig.baseUrl;
+            modelId = user.aiConfig.modelId;
+            if (debug) console.log('[AI Service] Custom provider not found, falling back to legacy config');
+          }
         } else {
-          // Fallback to legacy fields if provider not found
+          // Legacy single config
           apiKey = user.aiConfig.apiKey;
           apiBaseUrl = user.aiConfig.baseUrl;
           modelId = user.aiConfig.modelId;
-          if (debug) console.log('[AI Service] Custom provider not found, falling back to legacy config');
+          if (debug) console.log('[AI Service] Using user custom configuration (legacy)');
         }
       } else {
-        // Legacy single config
-        apiKey = user.aiConfig.apiKey;
-        apiBaseUrl = user.aiConfig.baseUrl;
-        modelId = user.aiConfig.modelId;
-        if (debug) console.log('[AI Service] Using user custom configuration (legacy)');
+        // Use system global config
+        const settings = await getSettings();
+        const aiConfig = settings.ai || {};
+
+        apiKey = aiConfig.apiKey || process.env.AI_API_KEY;
+        apiBaseUrl = aiConfig.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1';
+        modelId = aiConfig.modelId || process.env.AI_MODEL_ID || 'gpt-3.5-turbo';
+        if (debug) console.log('[AI Service] Using system global configuration');
+      }
+    } else if (req.body.aiConfig) {
+      // Local mode or anonymous with config
+      const config = req.body.aiConfig;
+      if (config.useCustom && config.currentProviderId && config.providers) {
+         const providerConfig = config.providers.find(p => p.id === config.currentProviderId);
+         if (providerConfig) {
+            apiKey = providerConfig.apiKey;
+            apiBaseUrl = providerConfig.baseUrl;
+            modelId = providerConfig.modelId;
+         }
+      }
+
+      // Fallback or direct fields
+      if (!apiKey) {
+          apiKey = config.apiKey;
+          apiBaseUrl = config.baseUrl;
+          modelId = config.modelId;
+      }
+
+      if (debug) console.log('[AI Service] Using provided config from request body');
+
+      // If still no apiKey, try system default
+      if (!apiKey) {
+        const settings = await getSettings();
+        const aiConfig = settings.ai || {};
+        apiKey = aiConfig.apiKey || process.env.AI_API_KEY;
+        apiBaseUrl = aiConfig.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1';
+        modelId = aiConfig.modelId || process.env.AI_MODEL_ID || 'gpt-3.5-turbo';
+        if (debug) console.log('[AI Service] Using system global configuration for local/anonymous user');
       }
     } else {
-      // Use system global config
-      const settings = await getSettings();
-      const aiConfig = settings.ai || {};
-
-      apiKey = aiConfig.apiKey || process.env.AI_API_KEY;
-      apiBaseUrl = aiConfig.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1';
-      modelId = aiConfig.modelId || process.env.AI_MODEL_ID || 'gpt-3.5-turbo';
-      if (debug) console.log('[AI Service] Using system global configuration');
+      return res.status(401).json({ error: 'Unauthorized: No user or AI config provided' });
     }
 
     if (!apiKey) {

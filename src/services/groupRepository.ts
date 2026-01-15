@@ -1,24 +1,32 @@
 import {v4 as uuidv4} from 'uuid'
 import type {Group} from '@/types'
 import {authService} from './authService'
+import {useStorageModeStore} from '@/stores/storageModeStore'
+import {db} from './db'
 
 const API_BASE = '/api'
 
 /**
  * Group Repository
- * Data access layer for group management (Server-side storage)
+ * Data access layer for group management (Supports both Local and Cloud storage)
  */
 export const GroupRepository = {
   /**
    * Create a new group
    */
   async create(name: string): Promise<Group> {
+    const mode = useStorageModeStore.getState().mode
     const now = new Date()
     const group: Group = {
       id: uuidv4(),
       name,
       createdAt: now,
       updatedAt: now,
+    }
+
+    if (mode === 'local') {
+      await db.groups.add(group)
+      return group
     }
 
     const response = await fetch(`${API_BASE}/groups`, {
@@ -41,6 +49,12 @@ export const GroupRepository = {
    * Get all groups, sorted by createdAt ascending
    */
   async getAll(): Promise<Group[]> {
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      return await db.groups.orderBy('createdAt').toArray()
+    }
+
     const response = await fetch(`${API_BASE}/groups`, {
       headers: authService.getAuthHeader()
     })
@@ -58,6 +72,16 @@ export const GroupRepository = {
    * Update group
    */
   async update(id: string, name: string): Promise<void> {
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      await db.groups.update(id, {
+        name,
+        updatedAt: new Date(),
+      })
+      return
+    }
+
     const response = await fetch(`${API_BASE}/groups/${id}`, {
       method: 'PUT',
       headers: {
@@ -77,6 +101,17 @@ export const GroupRepository = {
    * Delete group
    */
   async delete(id: string): Promise<void> {
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      await db.transaction('rw', db.groups, db.projects, async () => {
+        await db.groups.delete(id)
+        // Set groupId to undefined for projects in this group
+        await db.projects.where('groupId').equals(id).modify({ groupId: undefined })
+      })
+      return
+    }
+
     const response = await fetch(`${API_BASE}/groups/${id}`, {
       method: 'DELETE',
       headers: authService.getAuthHeader()

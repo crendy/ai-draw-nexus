@@ -1,9 +1,11 @@
 import {useEffect, useRef, useState} from 'react'
-import {Check, ChevronDown, Search, Server} from 'lucide-react'
+import {Check, ChevronDown, Search, Server, Settings} from 'lucide-react'
 import {Button, Dialog, DialogContent, Input} from '@/components/ui'
 import {ProviderIcon} from '@/components/icons/ProviderIcon'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
+import {useStorageModeStore} from '@/stores/storageModeStore'
+import {useNavigate} from 'react-router-dom'
 
 interface Provider {
   id: string
@@ -71,6 +73,8 @@ export function ModelSelector({ className }: ModelSelectorProps) {
   const [activeId, setActiveId] = useState<string>('system')
   const [searchQuery, setSearchQuery] = useState('')
   const { success, error: showError } = useToast()
+  const storageMode = useStorageModeStore((state) => state.mode)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (isOpen) {
@@ -200,6 +204,13 @@ export function ModelSelector({ className }: ModelSelectorProps) {
           </div>
 
           <div className="h-[400px] overflow-y-auto p-2">
+            {/* Local Mode Hint */}
+            {storageMode === 'local' && (
+              <div className="mb-3 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-xs text-green-600">
+                目前是本地模式，个人配置的AI模型密钥信息，只存储在本地浏览器，请放心配置
+              </div>
+            )}
+
             {/* System Default */}
             {(!searchQuery || '系统默认'.includes(searchQuery) || '服务器默认'.includes(searchQuery)) && (
               <div className="mb-2">
@@ -269,6 +280,21 @@ export function ModelSelector({ className }: ModelSelectorProps) {
                 未找到匹配的模型
               </div>
             )}
+          </div>
+
+          {/* Footer Config Button */}
+          <div className="p-3 border-t border-border bg-muted/30 flex justify-end">
+            <Button
+              size="sm"
+              className="gap-2 rounded-full bg-primary text-surface hover:bg-primary/90"
+              onClick={() => {
+                setIsOpen(false)
+                navigate('/profile')
+              }}
+            >
+              <Settings className="h-3.5 w-3.5" />
+              <span>配置模型</span>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

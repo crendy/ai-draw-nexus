@@ -16,7 +16,7 @@ import {
 } from '@/components/ui'
 import {authService, type ExampleProject} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Bot, Eye, EyeOff, FileCode, KeyRound, Pencil, Settings2, Trash2, User, Users} from 'lucide-react'
+import {Bot, Eye, EyeOff, FileCode, KeyRound, Megaphone, Pencil, Settings2, Trash2, User, Users} from 'lucide-react'
 import {useNavigate} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
@@ -88,6 +88,17 @@ export function AdminPage() {
                     <span>全局 LLM 模型</span>
                   </button>
                   <button
+                    onClick={() => setActiveTab('notifications')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'notifications'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <Megaphone className="h-4 w-4" />
+                    <span>通知设置</span>
+                  </button>
+                  <button
                     onClick={() => setActiveTab('examples')}
                     className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                       activeTab === 'examples'
@@ -121,6 +132,13 @@ export function AdminPage() {
                   <>
                     <h2 className="mb-6 text-lg font-medium text-primary">全局 LLM 模型</h2>
                     <LLMSettings />
+                  </>
+                )}
+
+                {activeTab === 'notifications' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">通知设置</h2>
+                    <NotificationSettings />
                   </>
                 )}
 
@@ -639,6 +657,104 @@ function AdminAccessPasswordDialog({ open, onOpenChange, user, onSave }: AdminAc
 }
 
 
+function NotificationSettings() {
+  const [homepageNotification, setHomepageNotification] = useState('')
+  const [editorNotification, setEditorNotification] = useState('')
+  const [loading, setLoading] = useState(false)
+  const { success, error: showError } = useToast()
+  const setNotifications = useSystemStore((state) => state.setNotifications)
+  const [systemSettings, setSystemSettings] = useState<any>({})
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      const settings = await authService.getSystemSettings()
+      if (settings.notifications) {
+        setHomepageNotification(settings.notifications.homepage || '')
+        setEditorNotification(settings.notifications.editor || '')
+      }
+      if (settings.system) {
+        setSystemSettings(settings.system)
+      }
+    } catch (err) {
+      showError('加载配置失败')
+    }
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      const notifications = {
+        homepage: homepageNotification,
+        editor: editorNotification
+      }
+
+      // We need to preserve other settings.
+      // Ideally authService.updateSystemSettings should merge, but it seems to replace 'system' and 'ai' sections.
+      // Let's fetch current settings again to be safe or just send what we have?
+      // The API implementation (based on authService) seems to take the whole object.
+      // Let's assume we need to send everything or at least the parts we want to update if the backend merges.
+      // Looking at authService.updateSystemSettings, it sends the whole object.
+      // So we should probably fetch first (which we did in loadSettings).
+      // But wait, we only loaded 'system' and 'notifications'. What about 'ai'?
+      // We should probably load everything.
+
+      const currentSettings = await authService.getSystemSettings()
+
+      await authService.updateSystemSettings({
+        ...currentSettings,
+        notifications
+      })
+
+      setNotifications(notifications)
+      success('通知配置已保存')
+    } catch (err) {
+      showError('保存配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">首页通知</label>
+        <textarea
+          value={homepageNotification}
+          onChange={(e) => setHomepageNotification(e.target.value)}
+          placeholder="输入首页通知内容，支持 HTML 标签如 <b>加粗</b>, <a href='...'>链接</a>"
+          className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px]"
+        />
+        <p className="mt-2 text-xs text-muted">
+          显示在首页顶部的滚动通知。留空则不显示。支持 HTML 格式（如 &lt;b&gt;加粗&lt;/b&gt;, &lt;a href=&quot;#&quot;&gt;链接&lt;/a&gt;）。
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">编辑器通知</label>
+        <textarea
+          value={editorNotification}
+          onChange={(e) => setEditorNotification(e.target.value)}
+          placeholder="输入编辑器通知内容..."
+          className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px]"
+        />
+        <p className="mt-2 text-xs text-muted">
+          显示在编辑器页面顶部的滚动通知。留空则不显示。
+        </p>
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <Button onClick={handleSave} disabled={loading} className="rounded-full">
+          {loading ? '保存中...' : '保存配置'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function ExampleProjectsManagement() {
   const [projects, setProjects] = useState<ExampleProject[]>([])
   const [loading, setLoading] = useState(true)
@@ -882,6 +998,7 @@ function CreateExampleProjectDialog({ open, onOpenChange }: { open: boolean, onO
 function BasicSettings() {
   const [systemName, setSystemName] = useState('')
   const [showAbout, setShowAbout] = useState(true)
+  const [allowRegister, setAllowRegister] = useState(true)
   const [defaultEngine, setDefaultEngine] = useState<EngineType>('drawio')
   const [defaultModelPrompt, setDefaultModelPrompt] = useState('')
   const [aiSettings, setAiSettings] = useState<any>({})
@@ -903,11 +1020,13 @@ function BasicSettings() {
       if (settings.system) {
         setSystemName(settings.system.name || 'AI Draw')
         setShowAbout(settings.system.showAbout !== false)
+        setAllowRegister(settings.system.allowRegister !== false)
         setDefaultEngine(settings.system.defaultEngine || 'drawio')
         setDefaultModelPrompt(settings.system.defaultModelPrompt || '使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义')
       } else {
         setSystemName('AI Draw')
         setShowAbout(true)
+        setAllowRegister(true)
         setDefaultEngine('drawio')
         setDefaultModelPrompt('使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义')
       }
@@ -927,6 +1046,7 @@ function BasicSettings() {
         system: {
           name: systemName,
           showAbout,
+          allowRegister,
           defaultEngine,
           defaultModelPrompt
         },
@@ -991,17 +1111,32 @@ function BasicSettings() {
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="showAbout"
-          checked={showAbout}
-          onChange={(e) => setShowAbout(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-        />
-        <label htmlFor="showAbout" className="text-sm font-medium text-muted cursor-pointer">
-          显示"关于"菜单
-        </label>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="showAbout"
+            checked={showAbout}
+            onChange={(e) => setShowAbout(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="showAbout" className="text-sm font-medium text-muted cursor-pointer">
+            显示"关于"菜单
+          </label>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="allowRegister"
+            checked={allowRegister}
+            onChange={(e) => setAllowRegister(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="allowRegister" className="text-sm font-medium text-muted cursor-pointer">
+            开放用户注册
+          </label>
+        </div>
       </div>
 
       <div className="flex gap-3 pt-4">

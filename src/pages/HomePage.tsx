@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import {Edit, Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
+import {v4 as uuidv4} from 'uuid'
 import {Button, Dialog, DialogContent, Loading, Logo} from '@/components/ui'
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {ModelSelector} from '@/components/ai/ModelSelector'
@@ -11,7 +12,10 @@ import {ProjectRepository} from '@/services/projectRepository'
 import {useChatStore} from '@/stores/chatStore'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
+import {useStorageModeStore} from '@/stores/storageModeStore'
 import {aiService} from '@/services/aiService'
+import {authService} from '@/services/authService'
+import {db} from '@/services/db'
 import {useToast} from '@/hooks/useToast'
 import {
   fileToBase64,
@@ -99,6 +103,7 @@ export function HomePage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const setInitialPrompt = useChatStore((state) => state.setInitialPrompt)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const storageMode = useStorageModeStore((state) => state.mode)
   const systemName = useSystemStore((state) => state.systemName)
   const { error: showError } = useToast()
 
@@ -122,7 +127,47 @@ export function HomePage() {
 
   const loadRecentProjects = async () => {
     try {
-      const projects = await ProjectRepository.getAll()
+      let projects = await ProjectRepository.getAll()
+
+      // 如果是本地模式且没有项目，尝试加载示例项目
+      if (storageMode === 'local' && projects.length === 0) {
+        try {
+          const examples = await authService.getPublicExampleProjects()
+          if (examples.length > 0) {
+            // 批量保存示例项目到本地
+            await db.transaction('rw', db.projects, db.versions, async () => {
+              for (const example of examples) {
+                const projectId = uuidv4() // 生成新 ID
+                const now = new Date()
+
+                // 1. 添加项目
+                await db.projects.add({
+                  id: projectId,
+                  title: example.title,
+                  engineType: example.engineType,
+                  thumbnail: example.thumbnail,
+                  createdAt: now,
+                  updatedAt: now,
+                })
+
+                // 2. 添加初始版本
+                await db.versions.add({
+                  id: uuidv4(),
+                  projectId: projectId,
+                  content: example.content,
+                  changeSummary: 'Initial (Example)',
+                  timestamp: now,
+                })
+              }
+            })
+            // 重新加载项目
+            projects = await ProjectRepository.getAll()
+          }
+        } catch (err) {
+          console.error('Failed to load example projects:', err)
+        }
+      }
+
       setRecentProjects(projects.slice(0, 4))
     } catch (error) {
       console.error('Failed to load projects:', error)
@@ -132,7 +177,7 @@ export function HomePage() {
   const handleQuickStart = async () => {
     if (!prompt.trim()) return
 
-    if (!isAuthenticated()) {
+    if (storageMode === 'cloud' && !isAuthenticated()) {
       navigate('/login')
       return
     }
@@ -317,7 +362,7 @@ export function HomePage() {
       <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
 
       {/* Main Content */}
-      <main className="flex flex-1 flex-col pl-[72px]">
+      <main className="flex flex-1 flex-col pl-[72px] overflow-x-hidden">
         {/* Header */}
         <AppHeader />
 

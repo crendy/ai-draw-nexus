@@ -1,12 +1,14 @@
 import {v4 as uuidv4} from 'uuid'
 import type {VersionHistory} from '@/types'
 import {authService} from './authService'
+import {useStorageModeStore} from '@/stores/storageModeStore'
+import {db} from './db'
 
 const API_BASE = '/api'
 
 /**
  * Version History Repository
- * Data access layer for version history management (Server-side storage)
+ * Data access layer for version history management (Supports both Local and Cloud storage)
  */
 export const VersionRepository = {
   /**
@@ -17,12 +19,18 @@ export const VersionRepository = {
     content: string
     changeSummary: string
   }): Promise<VersionHistory> {
+    const mode = useStorageModeStore.getState().mode
     const version: VersionHistory = {
       id: uuidv4(),
       projectId: data.projectId,
       content: data.content,
       changeSummary: data.changeSummary,
       timestamp: new Date(),
+    }
+
+    if (mode === 'local') {
+      await db.versions.add(version)
+      return version
     }
 
     const response = await fetch(`${API_BASE}/projects/${data.projectId}/versions`, {
@@ -45,6 +53,16 @@ export const VersionRepository = {
    * Get all versions for a project, sorted by timestamp descending
    */
   async getByProjectId(projectId: string): Promise<VersionHistory[]> {
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      return await db.versions
+        .where('projectId')
+        .equals(projectId)
+        .reverse()
+        .sortBy('timestamp')
+    }
+
     const response = await fetch(`${API_BASE}/projects/${projectId}/versions`, {
       headers: authService.getAuthHeader()
     })
@@ -61,6 +79,17 @@ export const VersionRepository = {
    * Get the latest version for a project
    */
   async getLatest(projectId: string): Promise<VersionHistory | undefined> {
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      const versions = await db.versions
+        .where('projectId')
+        .equals(projectId)
+        .reverse()
+        .sortBy('timestamp')
+      return versions[0]
+    }
+
     const response = await fetch(`${API_BASE}/projects/${projectId}/versions/latest`, {
       headers: authService.getAuthHeader()
     })
@@ -76,12 +105,15 @@ export const VersionRepository = {
 
   /**
    * Get version by ID
-   * Note: This is inefficient in file-based backend without projectId
-   * But currently not used in critical path.
    */
   async getById(id: string): Promise<VersionHistory | undefined> {
-    // Not implemented efficiently.
-    // If needed, we'd need to search all project version files.
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      return await db.versions.get(id)
+    }
+
+    // Not implemented efficiently in server mode
     console.warn('VersionRepository.getById is not fully supported in server mode')
     return undefined
   },
@@ -90,6 +122,13 @@ export const VersionRepository = {
    * Delete a specific version
    */
   async delete(id: string): Promise<void> {
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      await db.versions.delete(id)
+      return
+    }
+
     console.warn('VersionRepository.delete is not supported in server mode')
   },
 
@@ -97,6 +136,13 @@ export const VersionRepository = {
    * Delete all versions for a project
    */
   async deleteByProjectId(projectId: string): Promise<void> {
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      await db.versions.where('projectId').equals(projectId).delete()
+      return
+    }
+
     const response = await fetch(`${API_BASE}/projects/${projectId}/versions`, {
       method: 'DELETE',
       headers: authService.getAuthHeader()
@@ -106,9 +152,18 @@ export const VersionRepository = {
 
   /**
    * Update the latest version's content for a project
-   * Used when user manually edits the diagram (e.g., in Excalidraw)
    */
   async updateLatest(projectId: string, content: string): Promise<void> {
+    const mode = useStorageModeStore.getState().mode
+
+    if (mode === 'local') {
+      const latest = await this.getLatest(projectId)
+      if (latest) {
+        await db.versions.update(latest.id, { content })
+      }
+      return
+    }
+
     const response = await fetch(`${API_BASE}/projects/${projectId}/versions/latest`, {
       method: 'PUT',
       headers: {

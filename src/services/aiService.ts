@@ -1,6 +1,8 @@
 import type {ChatRequest, PayloadMessage} from '@/types'
 import {quotaService} from './quotaService'
 import {authService} from './authService'
+import {useStorageModeStore} from '@/stores/storageModeStore'
+import {db} from './db'
 
 // API endpoint - can be configured via environment variable
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -24,6 +26,9 @@ function getHeaders(): Record<string, string> {
  * 检查配额并在需要时消耗
  */
 function checkAndConsumeQuota(response: Response): void {
+  const mode = useStorageModeStore.getState().mode
+  if (mode === 'local') return
+
   const quotaExempt = response.headers.get('X-Quota-Exempt')
   // 只有当不免除配额时才消耗
   if (quotaExempt !== 'true') {
@@ -35,6 +40,9 @@ function checkAndConsumeQuota(response: Response): void {
  * 检查是否有足够配额（有密码时跳过检查）
  */
 function ensureQuotaAvailable(): void {
+  const mode = useStorageModeStore.getState().mode
+  if (mode === 'local') return
+
   if (!quotaService.hasAccessPassword() && !quotaService.hasQuotaRemaining()) {
     throw new Error('今日配额已用完，请明天再试或设置访问密码')
   }
@@ -110,7 +118,18 @@ export const aiService = {
     try {
       ensureQuotaAvailable()
 
-      const request: ChatRequest = { messages }
+      const mode = useStorageModeStore.getState().mode
+      let aiConfig = undefined
+      if (mode === 'local') {
+        const configItem = await db.configs.get('user_ai_config')
+        if (configItem?.value) {
+          aiConfig = configItem.value
+        } else {
+          aiConfig = {}
+        }
+      }
+
+      const request: ChatRequest & { aiConfig?: any } = { messages, aiConfig }
 
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
@@ -119,9 +138,12 @@ export const aiService = {
       })
 
       if (response.status === 401 || response.status === 403) {
-        authService.logout()
-        window.location.href = '/login'
-        throw new Error('登录已过期，请重新登录')
+        const mode = useStorageModeStore.getState().mode
+        if (mode !== 'local') {
+          authService.logout()
+          window.location.href = '/login'
+          throw new Error('登录已过期，请重新登录')
+        }
       }
 
       if (!response.ok) {
@@ -178,7 +200,18 @@ export const aiService = {
     try {
       ensureQuotaAvailable()
 
-      const request: ChatRequest = { messages, stream: true } as ChatRequest & { stream: boolean }
+      const mode = useStorageModeStore.getState().mode
+      let aiConfig = undefined
+      if (mode === 'local') {
+        const configItem = await db.configs.get('user_ai_config')
+        if (configItem?.value) {
+          aiConfig = configItem.value
+        } else {
+          aiConfig = {}
+        }
+      }
+
+      const request: ChatRequest & { stream: boolean; aiConfig?: any } = { messages, stream: true, aiConfig }
 
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
@@ -187,9 +220,12 @@ export const aiService = {
       })
 
       if (response.status === 401 || response.status === 403) {
-        authService.logout()
-        window.location.href = '/login'
-        throw new Error('登录已过期，请重新登录')
+        const mode = useStorageModeStore.getState().mode
+        if (mode !== 'local') {
+          authService.logout()
+          window.location.href = '/login'
+          throw new Error('登录已过期，请重新登录')
+        }
       }
 
       if (!response.ok) {
@@ -274,9 +310,12 @@ export const aiService = {
     })
 
     if (response.status === 401) {
-      authService.logout()
-      window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
+      const mode = useStorageModeStore.getState().mode
+      if (mode !== 'local') {
+        authService.logout()
+        window.location.href = '/login'
+        throw new Error('登录已过期，请重新登录')
+      }
     }
 
     const data: ParseUrlResponse = await response.json()

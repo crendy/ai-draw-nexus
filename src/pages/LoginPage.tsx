@@ -1,4 +1,4 @@
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {Link, useNavigate} from 'react-router-dom'
 import {Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Input} from '@/components/ui'
 import {authService} from '@/services/authService'
@@ -12,6 +12,21 @@ export function LoginPage() {
   const navigate = useNavigate()
   const { error: showError } = useToast()
   const systemName = useSystemStore((state) => state.systemName)
+  const [allowRegister, setAllowRegister] = useState(true)
+
+  useEffect(() => {
+    const checkSettings = async () => {
+      try {
+        const settings = await authService.getSystemSettings()
+        if (settings.system?.allowRegister === false) {
+          setAllowRegister(false)
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    checkSettings()
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,6 +40,13 @@ export function LoginPage() {
       showError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRegisterClick = (e: React.MouseEvent) => {
+    if (!allowRegister) {
+      e.preventDefault()
+      showError('管理员已关闭注册功能，请联系管理员')
     }
   }
 
@@ -59,11 +81,15 @@ export function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? '登录中...' : 'Login'}
+              {loading ? '登录中...' : '登录'}
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               还没有账号?{' '}
-              <Link to="/register" className="text-primary hover:underline">
+              <Link
+                to="/register"
+                className="text-primary hover:underline"
+                onClick={handleRegisterClick}
+              >
                 注册账号
               </Link>
             </div>

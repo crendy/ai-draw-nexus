@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react'
+import {useEffect, useState, Dispatch, SetStateAction} from 'react'
 import {AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {
   Button,
@@ -19,158 +19,7 @@ import {useToast} from '@/hooks/useToast'
 import {Bot, Check, Eye, EyeOff, Plus, Server, Sparkles, Trash2, User} from 'lucide-react'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
-
-export function ProfilePage() {
-  const [activeTab, setActiveTab] = useState('profile')
-  const [nickname, setNickname] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [quotaUsed, setQuotaUsed] = useState(0)
-  const [quotaTotal, setQuotaTotal] = useState(10)
-  const { success, error: showError } = useToast()
-  const user = useAuthStore((state) => state.user)
-  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false)
-  const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-
-  useEffect(() => {
-    // 加载配额信息
-    setQuotaUsed(quotaService.getUsedCount())
-    setQuotaTotal(quotaService.getDailyQuota())
-    // 加载已保存的密码
-    setPassword(quotaService.getAccessPassword())
-    // 初始化昵称
-    if (user?.nickname) {
-      setNickname(user.nickname)
-    } else if (user?.username) {
-      setNickname(user.username)
-    }
-  }, [user])
-
-  const handleNicknameUpdate = async () => {
-    if (!nickname.trim()) {
-      showError('昵称不能为空')
-      return
-    }
-    try {
-      await authService.updateUserNickname(nickname)
-      success('昵称更新成功')
-    } catch (err) {
-      showError('昵称更新失败')
-    }
-  }
-
-  const handlePasswordChange = async (current: string, newPass: string) => {
-    try {
-      await authService.changePassword(current, newPass)
-      success('密码修改成功')
-    } catch (err) {
-      showError(err instanceof Error ? err.message : '密码修改失败')
-    }
-  }
-
-  const quotaPercentage = Math.min(100, (quotaUsed / quotaTotal) * 100)
-  const hasPassword = quotaService.hasAccessPassword()
-
-  return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
-      <main className="flex flex-1 flex-col pl-[72px] h-full">
-        <div className="flex flex-1 w-full bg-background overflow-hidden">
-            <div className="flex h-full w-full">
-              {/* 左侧 Tab */}
-              <div className="w-64 border-r border-border bg-surface/50 p-4 overflow-y-auto">
-                <nav className="space-y-1">
-                  <button
-                    onClick={() => setActiveTab('profile')}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                      activeTab === 'profile'
-                        ? 'bg-primary text-surface'
-                        : 'text-muted hover:bg-background hover:text-primary'
-                    }`}
-                  >
-                    <User className="h-4 w-4" />
-                    <span>个人信息</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('settings')}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                      activeTab === 'settings'
-                        ? 'bg-primary text-surface'
-                        : 'text-muted hover:bg-background hover:text-primary'
-                    }`}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    <span>AI模型配置</span>
-                  </button>
-                </nav>
-              </div>
-
-              {/* 右侧内容区 */}
-              <div className="flex-1 bg-surface p-6 overflow-y-auto">
-                {activeTab === 'profile' && (
-                  <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">用户信息</h2>
-                    <div className="space-y-6">
-                      <div>
-                        <label className="text-sm font-medium text-muted">用户名</label>
-                        <div className="mt-1 text-lg font-medium text-primary">{user?.username}</div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted">昵称</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <Input
-                            value={nickname}
-                            onChange={(e) => setNickname(e.target.value)}
-                            className="max-w-xs"
-                            placeholder="请输入昵称"
-                          />
-                          <Button onClick={handleNicknameUpdate} size="sm">
-                            保存
-                          </Button>
-                        </div>
-                      </div>
-                      <div>
-                        <Button onClick={() => setIsChangePasswordDialogOpen(true)}>
-                          修改登录密码
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {activeTab === 'settings' && (
-                  <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">AI 模型配置</h2>
-                    <UserAIConfigSection
-                      password={password}
-                      setPassword={setPassword}
-                      showPassword={showPassword}
-                      setShowPassword={setShowPassword}
-                      onConfigSaved={() => setConfigUpdateTrigger(prev => prev + 1)}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-        </div>
-      </main>
-
-      {/* 修改密码弹窗 */}
-      <ChangePasswordDialog
-        open={isChangePasswordDialogOpen}
-        onOpenChange={setIsChangePasswordDialogOpen}
-        onSave={handlePasswordChange}
-      />
-
-      <CreateProjectDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-      />
-    </div>
-  )
-}
-
+import {useStorageModeStore} from '@/stores/storageModeStore'
 
 interface Provider {
   id: string
@@ -255,13 +104,21 @@ const ProviderIcon = ({ type }: { type: string }) => {
   }
 }
 
+interface UserAIConfigSectionProps {
+  password: string
+  setPassword: Dispatch<SetStateAction<string>>
+  showPassword: boolean
+  setShowPassword: Dispatch<SetStateAction<boolean>>
+  onConfigSaved?: () => void
+}
+
 function UserAIConfigSection({
   password,
   setPassword,
   showPassword,
   setShowPassword,
   onConfigSaved,
-}: any) {
+}: UserAIConfigSectionProps) {
   const [providers, setProviders] = useState<Provider[]>([])
   const [selectedId, setSelectedId] = useState<string>('system')
   const [activeId, setActiveId] = useState<string>('system')
@@ -270,6 +127,7 @@ function UserAIConfigSection({
   const { success, error: showError } = useToast()
   const defaultModelPrompt = useSystemStore((state) => state.defaultModelPrompt)
   const [tempModelId, setTempModelId] = useState('')
+  const storageMode = useStorageModeStore((state) => state.mode)
 
   // Form state for the selected provider
   const [formData, setFormData] = useState<Provider>({
@@ -444,11 +302,11 @@ function UserAIConfigSection({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-              {PRESET_PROVIDERS.map((preset) => (
+              <>{PRESET_PROVIDERS.map((preset) => (
                 <DropdownMenuItem key={preset.type} onClick={() => handleAddProvider(preset)}>
                   {preset.name}
                 </DropdownMenuItem>
-              ))}
+              ))}</>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -585,6 +443,11 @@ function UserAIConfigSection({
 
             {/* Form */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {storageMode === 'local' && (
+                <div className="mb-4 px-4 py-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm text-green-600">
+                  目前是本地模式，个人配置的AI模型密钥信息，只存储在本地浏览器，请放心配置
+                </div>
+              )}
               <div>
                 <label className="mb-2 block text-sm font-medium text-muted">API Key</label>
                 <div className="flex gap-2">
@@ -801,5 +664,159 @@ function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDial
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+export function ProfilePage() {
+  const storageMode = useStorageModeStore((state) => state.mode)
+  const [activeTab, setActiveTab] = useState(storageMode === 'local' ? 'settings' : 'profile')
+  const [nickname, setNickname] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [quotaUsed, setQuotaUsed] = useState(0)
+  const [quotaTotal, setQuotaTotal] = useState(10)
+  const { success, error: showError } = useToast()
+  const user = useAuthStore((state) => state.user)
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false)
+  const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+
+  useEffect(() => {
+    // 加载配额信息
+    setQuotaUsed(quotaService.getUsedCount())
+    setQuotaTotal(quotaService.getDailyQuota())
+    // 加载已保存的密码
+    setPassword(quotaService.getAccessPassword())
+    // 初始化昵称
+    if (user?.nickname) {
+      setNickname(user.nickname)
+    } else if (user?.username) {
+      setNickname(user.username)
+    }
+  }, [user])
+
+  const handleNicknameUpdate = async () => {
+    if (!nickname.trim()) {
+      showError('昵称不能为空')
+      return
+    }
+    try {
+      await authService.updateUserNickname(nickname)
+      success('昵称更新成功')
+    } catch (err) {
+      showError('昵称更新失败')
+    }
+  }
+
+  const handlePasswordChange = async (current: string, newPass: string) => {
+    try {
+      await authService.changePassword(current, newPass)
+      success('密码修改成功')
+    } catch (err) {
+      showError(err instanceof Error ? err.message : '密码修改失败')
+    }
+  }
+
+  const quotaPercentage = Math.min(100, (quotaUsed / quotaTotal) * 100)
+  const hasPassword = quotaService.hasAccessPassword()
+
+  return (
+    <div className="flex h-screen bg-background overflow-hidden">
+      <AppSidebar onCreateProject={() => setIsCreateDialogOpen(true)} />
+      <main className="flex flex-1 flex-col pl-[72px] h-full">
+        <div className="flex flex-1 w-full bg-background overflow-hidden">
+            <div className="flex h-full w-full">
+              {/* 左侧 Tab */}
+              <div className="w-64 border-r border-border bg-surface/50 p-4 overflow-y-auto">
+                <nav className="space-y-1">
+                  {storageMode !== 'local' && (
+                    <button
+                      onClick={() => setActiveTab('profile')}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        activeTab === 'profile'
+                          ? 'bg-primary text-surface'
+                          : 'text-muted hover:bg-background hover:text-primary'
+                      }`}
+                    >
+                      <User className="h-4 w-4" />
+                      <span>个人信息</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'settings'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    <span>AI模型配置</span>
+                  </button>
+                </nav>
+              </div>
+
+              {/* 右侧内容区 */}
+              <div className="flex-1 bg-surface p-6 overflow-y-auto">
+                {activeTab === 'profile' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">用户信息</h2>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="text-sm font-medium text-muted">用户名</label>
+                        <div className="mt-1 text-lg font-medium text-primary">{user?.username}</div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted">昵称</label>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Input
+                            value={nickname}
+                            onChange={(e) => setNickname(e.target.value)}
+                            className="max-w-xs"
+                            placeholder="请输入昵称"
+                          />
+                          <Button onClick={handleNicknameUpdate} size="sm">
+                            保存
+                          </Button>
+                        </div>
+                      </div>
+                      <div>
+                        <Button onClick={() => setIsChangePasswordDialogOpen(true)}>
+                          修改登录密码
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {activeTab === 'settings' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">AI 模型配置</h2>
+                    <UserAIConfigSection
+                      password={password}
+                      setPassword={setPassword}
+                      showPassword={showPassword}
+                      setShowPassword={setShowPassword}
+                      onConfigSaved={() => setConfigUpdateTrigger(prev => prev + 1)}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+        </div>
+      </main>
+
+      {/* 修改密码弹窗 */}
+      <ChangePasswordDialog
+        open={isChangePasswordDialogOpen}
+        onOpenChange={setIsChangePasswordDialogOpen}
+        onSave={handlePasswordChange}
+      />
+
+      <CreateProjectDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+      />
+    </div>
   )
 }

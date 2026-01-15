@@ -2,12 +2,14 @@ import {useEffect, useRef, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
 import {Check, ChevronLeft, ChevronRight, Code, Download, FileText, History, Image, Pencil, Save, X} from 'lucide-react'
 import {Button, Input, Loading} from '@/components/ui'
+import {NotificationBar} from '@/components/ui/NotificationBar'
 import {AppSidebar} from '@/components/layout'
 import {ChatPanel} from '@/features/chat/ChatPanel'
 import {CanvasArea, type CanvasAreaRef} from '@/features/editor/CanvasArea'
 import {VersionPanel} from '@/features/editor/VersionPanel'
 import {useEditorStore} from '@/stores/editorStore'
 import {useChatStore} from '@/stores/chatStore'
+import {useSystemStore} from '@/stores/systemStore'
 import {ProjectRepository} from '@/services/projectRepository'
 import {VersionRepository} from '@/services/versionRepository'
 import {authService} from '@/services/authService'
@@ -42,10 +44,27 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
 
   const { currentProject, currentContent, hasUnsavedChanges, setProject, setContentFromVersion, markAsSaved, reset: resetEditor } = useEditorStore()
   const { clearMessages } = useChatStore()
+  const notifications = useSystemStore((state) => state.notifications)
+  const setNotifications = useSystemStore((state) => state.setNotifications)
 
   useEffect(() => {
     localStorage.setItem('ai-draw-nexus.chatPanelCollapsed', String(isChatPanelCollapsed))
   }, [isChatPanelCollapsed])
+
+  // Load system settings
+  useEffect(() => {
+    const loadSystemSettings = async () => {
+      try {
+        const settings = await authService.getSystemSettings()
+        if (settings.notifications) {
+          setNotifications(settings.notifications)
+        }
+      } catch (error) {
+        console.error('Failed to load system settings:', error)
+      }
+    }
+    loadSystemSettings()
+  }, [])
 
   // Load project on mount
   useEffect(() => {
@@ -303,6 +322,14 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
             )}
           </div>
           <div className="h-4 w-px bg-border" />
+        </div>
+
+        {/* Notification Bar */}
+        <div className="flex-1 mx-4 min-w-0 max-w-2xl">
+          <NotificationBar
+            message={notifications.editor}
+            className="rounded-md border-none bg-yellow-50/80 h-8"
+          />
         </div>
 
         <div className="flex items-center gap-2">
