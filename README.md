@@ -48,6 +48,9 @@ services:
       - DATA_DIR=/app/data
       - DEBUG=false
 ```
+
+**阿里云镜像地址：** registry.cn-hangzhou.aliyuncs.com/stone-yu/ai-draw:latest
+
 **2.访问http://<NAS_IP>:3000即可使用，数据将保存在项目目录下的/app/data文件夹中；**
 
 **3.登录默认管理员账号：admin/admin123，登录后及时更改密码；**
