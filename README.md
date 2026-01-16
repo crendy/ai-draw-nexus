@@ -2,16 +2,17 @@
 
 <div align=center>
 
-**AI Draw <img src="https://github.com/user-attachments/assets/afbc4c80-53ee-4fdd-93cd-b0710408eb8c" width = "20" height = "20" div  /> 一句话呈所想**
+<strong><font face="仿宋" color=red size=7>AI Draw <img src="https://github.com/user-attachments/assets/afbc4c80-53ee-4fdd-93cd-b0710408eb8c" width = "20" height = "20" div  /> 一句话现所想</font></strong>
+
+与 AI 对话，让所想即刻呈现
 
 [![Image](https://github.com/user-attachments/assets/33a8fde6-2d2e-4c50-9416-7bae701451a4)](http://100qie.cn:3000)
 
-
 </div>
 
-一个 AI 驱动的图表创作平台，用自然语言描述你想要的图表，与AI对话，轻松绘图。支持 Mermaid、Excalidraw 和 Draw.io 三大引擎。支持docker私有部署。支持绘图文件存储和管理。
-
-基于 next-ai-drawio 和 ai-draw-next 二次开发，增加文件管理、文件分组管理、本地/云端两种模式支持、动态绘图效果等功能。
+AI Draw 是一个智能绘图平台，通过自然语言对话形式，即可快速生成流程图、时序图、架构图等各类图表，无需复杂的拖拽操作，让所想即刻呈现。
+支持 Mermaid、Excalidraw 和 Draw.io 三大引擎，支持docker私有部署，支持绘图文件存储和文件分组管理。
+基于 next-ai-drawio 和 ai-draw-next 二次开发，增加文件管理、文件分组管理、本地/云端两种模式支持、动态绘图效果等功能，并调整较多交互，优化使用体验。
 
 ## 系统截图
 

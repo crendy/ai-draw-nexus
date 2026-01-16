@@ -346,9 +346,9 @@ export function HomePage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-surface shadow-sm">
                 <Logo className="h-7 w-7" />
               </div>
-              <span>一句话呈创意</span>
+              <span>一句话现所想</span>
             </div>
-            <p className="text-lg text-muted-foreground">与 AI 对话，让创意即刻呈现</p>
+            <p className="text-lg text-muted-foreground">与 AI 对话，让所想即刻呈现</p>
           </div>
 
           {/* Chat Input Box */}
