@@ -1,4 +1,4 @@
-import {useEffect, useState, Dispatch, SetStateAction} from 'react'
+import {type Dispatch, type SetStateAction, useEffect, useState} from 'react'
 import {AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {
   Button,
@@ -302,11 +302,11 @@ function UserAIConfigSection({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-              <>{PRESET_PROVIDERS.map((preset) => (
+              {PRESET_PROVIDERS.map((preset) => (
                 <DropdownMenuItem key={preset.type} onClick={() => handleAddProvider(preset)}>
                   {preset.name}
                 </DropdownMenuItem>
-              ))}</>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -521,18 +521,19 @@ function UserAIConfigSection({
                                  variant="ghost"
                                  size="icon"
                                  className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                 onClick={() => {
-                                     const newModels = formData.models?.filter(model => model !== m) || [];
-                                     let newModelId = formData.modelId;
-                                     if (newModelId === m) {
-                                         newModelId = newModels[0] || '';
-                                     }
-                                     setFormData({
-                                         ...formData,
-                                         models: newModels,
-                                         modelId: newModelId
-                                     })
-                                 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const newModels = formData.models?.filter(model => model !== m) || [];
+                                      let newModelId = formData.modelId;
+                                      if (newModelId === m) {
+                                          newModelId = newModels[0] || '';
+                                      }
+                                      setFormData({
+                                          ...formData,
+                                          models: newModels,
+                                          modelId: newModelId
+                                      })
+                                  }}
                                >
                                  <Trash2 className="h-3.5 w-3.5" />
                                </Button>

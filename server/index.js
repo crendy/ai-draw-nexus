@@ -277,8 +277,10 @@ app.get('/api/settings/public', async (req, res) => {
   try {
     const settings = await getSettings();
     const publicSettings = {
-      system: settings.system,
-      notifications: settings.notifications,
+      system: {
+        ...settings.system,
+        notifications: settings.system?.notifications
+      },
       allowRegister: settings.system?.allowRegister !== false, // Default true
       ai: {
         // Only expose non-sensitive AI config if needed, e.g. modelId

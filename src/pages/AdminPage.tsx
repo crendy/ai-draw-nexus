@@ -659,6 +659,7 @@ function AdminAccessPasswordDialog({ open, onOpenChange, user, onSave }: AdminAc
 
 function NotificationSettings() {
   const [homepageNotification, setHomepageNotification] = useState('')
+  const [homepageAnnouncement, setHomepageAnnouncement] = useState('')
   const [editorNotification, setEditorNotification] = useState('')
   const [loading, setLoading] = useState(false)
   const { success, error: showError } = useToast()
@@ -672,9 +673,10 @@ function NotificationSettings() {
   const loadSettings = async () => {
     try {
       const settings = await authService.getSystemSettings()
-      if (settings.notifications) {
-        setHomepageNotification(settings.notifications.homepage || '')
-        setEditorNotification(settings.notifications.editor || '')
+      if (settings.system?.notifications) {
+        setHomepageNotification(settings.system.notifications.homepage || '')
+        setHomepageAnnouncement(settings.system.notifications.homepageAnnouncement || '')
+        setEditorNotification(settings.system.notifications.editor || '')
       }
       if (settings.system) {
         setSystemSettings(settings.system)
@@ -687,29 +689,25 @@ function NotificationSettings() {
   const handleSave = async () => {
     setLoading(true)
     try {
-      const notifications = {
-        homepage: homepageNotification,
-        editor: editorNotification
-      }
-
-      // We need to preserve other settings.
-      // Ideally authService.updateSystemSettings should merge, but it seems to replace 'system' and 'ai' sections.
-      // Let's fetch current settings again to be safe or just send what we have?
-      // The API implementation (based on authService) seems to take the whole object.
-      // Let's assume we need to send everything or at least the parts we want to update if the backend merges.
-      // Looking at authService.updateSystemSettings, it sends the whole object.
-      // So we should probably fetch first (which we did in loadSettings).
-      // But wait, we only loaded 'system' and 'notifications'. What about 'ai'?
-      // We should probably load everything.
-
       const currentSettings = await authService.getSystemSettings()
 
       await authService.updateSystemSettings({
         ...currentSettings,
-        notifications
+        system: {
+          ...currentSettings.system,
+          notifications: {
+            homepage: homepageNotification,
+            homepageAnnouncement: homepageAnnouncement,
+            editor: editorNotification
+          }
+        }
       })
 
-      setNotifications(notifications)
+      setNotifications({
+        homepage: homepageNotification,
+        homepageAnnouncement: homepageAnnouncement,
+        editor: editorNotification
+      })
       success('通知配置已保存')
     } catch (err) {
       showError('保存配置失败')
@@ -721,7 +719,7 @@ function NotificationSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted">首页通知</label>
+        <label className="mb-2 block text-sm font-medium text-muted">首页顶部滚动通知</label>
         <textarea
           value={homepageNotification}
           onChange={(e) => setHomepageNotification(e.target.value)}
@@ -730,6 +728,19 @@ function NotificationSettings() {
         />
         <p className="mt-2 text-xs text-muted">
           显示在首页顶部的滚动通知。留空则不显示。支持 HTML 格式（如 &lt;b&gt;加粗&lt;/b&gt;, &lt;a href=&quot;#&quot;&gt;链接&lt;/a&gt;）。
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">首页右侧公告框</label>
+        <textarea
+          value={homepageAnnouncement}
+          onChange={(e) => setHomepageAnnouncement(e.target.value)}
+          placeholder="输入首页公告内容..."
+          className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px]"
+        />
+        <p className="mt-2 text-xs text-muted">
+          显示在首页右上角的公告框。留空则不显示。支持 HTML 格式。高度根据内容自动调整。
         </p>
       </div>
 

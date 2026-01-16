@@ -20,6 +20,7 @@ export interface SystemSettings {
     defaultModelPrompt?: string
     notifications?: {
       homepage?: string
+      homepageAnnouncement?: string
       editor?: string
     }
   }
@@ -150,8 +151,9 @@ export const authService = {
       const localSettings = await db.configs.get('system_settings')
       const settings = localSettings?.value || {}
       // Merge public notifications
-      if (publicSettings.notifications) {
-        settings.notifications = publicSettings.notifications
+      if (publicSettings.system?.notifications) {
+        if (!settings.system) settings.system = {}
+        settings.system.notifications = publicSettings.system.notifications
       }
       return settings
     }

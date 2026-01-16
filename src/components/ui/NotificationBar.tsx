@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react'
-import { Megaphone } from 'lucide-react'
+import {useEffect, useRef} from 'react'
+import {Megaphone} from 'lucide-react'
 
 interface NotificationBarProps {
   message?: string
   className?: string
+  showIcon?: boolean
+  iconClassName?: string
 }
 
-export function NotificationBar({ message, className }: NotificationBarProps) {
+export function NotificationBar({ message, className, showIcon = true, iconClassName }: NotificationBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLDivElement>(null)
 
@@ -72,16 +74,21 @@ export function NotificationBar({ message, className }: NotificationBarProps) {
 
   if (!message) return null
 
+  // Default styles if not overridden by className
+  const defaultBg = className?.includes('bg-') ? '' : 'bg-yellow-50/80 border-b border-yellow-100 text-yellow-800'
+
   return (
     <div
-      className={`relative w-full max-w-full bg-yellow-50/80 border-b border-yellow-100 text-yellow-800 h-8 overflow-hidden flex items-center ${className}`}
+      className={`relative w-full max-w-full h-8 overflow-hidden flex items-center ${defaultBg} ${className || ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center px-2 bg-yellow-50/90 shadow-[2px_0_5px_rgba(255,255,255,0.5)]">
-        <Megaphone className="h-4 w-4 text-yellow-600" />
-      </div>
-      <div ref={containerRef} className="flex-1 overflow-hidden relative h-full flex items-center ml-8 min-w-0">
+      {showIcon && (
+        <div className={`absolute left-0 top-0 bottom-0 z-10 flex items-center px-2 ${iconClassName || 'bg-yellow-50/90 shadow-[2px_0_5px_rgba(255,255,255,0.5)]'}`}>
+          <Megaphone className="h-4 w-4 text-current opacity-80" />
+        </div>
+      )}
+      <div ref={containerRef} className={`flex-1 overflow-hidden relative h-full flex items-center min-w-0 ${showIcon ? 'ml-8' : ''}`}>
         <div
           ref={textRef}
           className="absolute whitespace-nowrap flex items-center will-change-transform"

@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
-import {Edit, Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
+import {Bot, Edit, Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
 import {v4 as uuidv4} from 'uuid'
 import {Button, Dialog, DialogContent, Loading, Logo} from '@/components/ui'
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
@@ -92,6 +92,7 @@ export function HomePage() {
   const [prompt, setPrompt] = useState('')
   const defaultEngine = useSystemStore((state) => state.defaultEngine)
   const setDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
+  const notifications = useSystemStore((state) => state.notifications)
   const [isLoading, setIsLoading] = useState(false)
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
   const [attachments, setAttachments] = useState<File[]>([])
@@ -114,6 +115,22 @@ export function HomePage() {
 
   useEffect(() => {
     loadRecentProjects()
+    // Load system settings including notifications
+    const loadSystemSettings = async () => {
+      try {
+        const settings = await authService.getSystemSettings()
+        if (settings.system?.notifications) {
+          useSystemStore.getState().setNotifications({
+            homepage: settings.system.notifications.homepage,
+            editor: settings.system.notifications.editor,
+            homepageAnnouncement: settings.system.notifications.homepageAnnouncement,
+          })
+        }
+      } catch (error) {
+        console.error('Failed to load system settings:', error)
+      }
+    }
+    loadSystemSettings()
   }, [])
 
   // 点击外部关闭引擎选择下拉框
@@ -365,6 +382,21 @@ export function HomePage() {
       <main className="flex flex-1 flex-col pl-[72px] overflow-x-hidden">
         {/* Header */}
         <AppHeader />
+
+        {/* Homepage Announcement Box */}
+        {notifications.homepageAnnouncement && (
+          <div className="absolute right-8 top-24 flex items-start gap-3 z-20 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-blue-100 shadow-sm border border-blue-50">
+              <Bot className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="relative max-w-xs rounded-2xl rounded-tl-none bg-gradient-to-r from-green-50 to-blue-50 p-4 shadow-md border border-blue-100/50">
+              <div
+                className="text-sm text-slate-700 [&_a]:underline [&_a]:text-blue-600 hover:[&_a]:text-blue-700 [&_a]:cursor-pointer [&_strong]:font-semibold [&_strong]:text-slate-900"
+                dangerouslySetInnerHTML={{ __html: notifications.homepageAnnouncement }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Hero Section */}
         <div className="flex flex-1 flex-col items-center px-8 pt-12">

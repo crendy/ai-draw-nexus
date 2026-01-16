@@ -1,12 +1,23 @@
-import {ChevronDown, LogOut} from 'lucide-react'
-import {Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui'
+import {ChevronDown, LogOut, Megaphone, X} from 'lucide-react'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui'
 import {NotificationBar} from '@/components/ui/NotificationBar'
 import {authService} from '@/services/authService'
 import {useNavigate} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
 import {ENGINES} from '@/constants'
-import {useEffect} from 'react'
+import {useEffect, useState} from 'react'
 
 export function AppHeader() {
   const navigate = useNavigate()
@@ -15,20 +26,25 @@ export function AppHeader() {
   const setDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
   const notifications = useSystemStore((state) => state.notifications)
   const setNotifications = useSystemStore((state) => state.setNotifications)
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
 
   useEffect(() => {
     const loadSystemSettings = async () => {
       try {
         const settings = await authService.getSystemSettings()
-        if (settings.notifications) {
-          setNotifications(settings.notifications)
+        if (settings.system?.notifications) {
+          setNotifications({
+            homepage: settings.system.notifications.homepage,
+            editor: settings.system.notifications.editor,
+            homepageAnnouncement: settings.system.notifications.homepageAnnouncement,
+          })
         }
       } catch (error) {
         console.error('Failed to load system settings:', error)
       }
     }
     loadSystemSettings()
-  }, [])
+  }, [setNotifications])
 
   const handleLogout = () => {
     authService.logout()
@@ -36,6 +52,7 @@ export function AppHeader() {
   }
 
   return (
+    <>
     <header className="relative flex items-center justify-between px-8 py-4">
       <div className="flex items-center gap-4 z-10">
         <DropdownMenu>
@@ -69,15 +86,36 @@ export function AppHeader() {
         </DropdownMenu>
       </div>
 
-      {/* Notification Bar */}
-      <div className="flex-1 mx-4 min-w-0 max-w-2xl flex justify-center">
-        <NotificationBar
-          message={notifications.homepage}
-          className="rounded-md border-none bg-yellow-50/80 h-8 w-[70%]"
-        />
-      </div>
+      {/* Notification Bar - Moved to right side */}
+      <div className="flex-1" />
 
       <div className="flex items-center gap-4">
+        {notifications.homepage && (
+          <div className="relative flex items-center overflow-hidden rounded-full bg-gradient-to-r from-green-50 to-blue-50 px-3 py-1 border border-blue-100/50 shadow-sm max-w-[400px]">
+            <Megaphone className="mr-2 h-4 w-4 text-green-600 flex-shrink-0" />
+            <div className="w-[200px] h-6 relative overflow-hidden">
+              <NotificationBar
+                message={notifications.homepage}
+                className="bg-transparent border-none h-6 text-sm text-slate-700"
+                showIcon={false}
+              />
+            </div>
+            <div className="mx-2 h-4 w-[1px] bg-slate-200" />
+            <button
+              onClick={() => setIsNotificationOpen(true)}
+              className="whitespace-nowrap text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              立即查看
+            </button>
+            <button
+              onClick={() => setNotifications({...notifications, homepage: undefined})}
+              className="ml-2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
         <span className="text-sm text-muted">简体中文</span>
         {user && (
           <div className="flex items-center gap-2">
@@ -96,5 +134,24 @@ export function AppHeader() {
         )}
       </div>
     </header>
+
+      {/* Notification Dialog */}
+      <Dialog open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>系统通知</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div
+              className="text-sm leading-relaxed text-slate-700 [&_a]:text-blue-600 [&_a]:underline [&_strong]:font-semibold"
+              dangerouslySetInnerHTML={{ __html: notifications.homepage || '' }}
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsNotificationOpen(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

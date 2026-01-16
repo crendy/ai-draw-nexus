@@ -1,7 +1,20 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
-import {Check, ChevronLeft, ChevronRight, Code, Download, FileText, History, Image, Pencil, Save, X} from 'lucide-react'
-import {Button, Input, Loading} from '@/components/ui'
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Code,
+  Download,
+  FileText,
+  History,
+  Image,
+  Megaphone,
+  Pencil,
+  Save,
+  X
+} from 'lucide-react'
+import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Loading} from '@/components/ui'
 import {NotificationBar} from '@/components/ui/NotificationBar'
 import {AppSidebar} from '@/components/layout'
 import {ChatPanel} from '@/features/chat/ChatPanel'
@@ -38,6 +51,7 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<CanvasAreaRef>(null)
   const { success } = useToast()
@@ -56,8 +70,8 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
     const loadSystemSettings = async () => {
       try {
         const settings = await authService.getSystemSettings()
-        if (settings.notifications) {
-          setNotifications(settings.notifications)
+        if (settings.system?.notifications) {
+          setNotifications(settings.system.notifications)
         }
       } catch (error) {
         console.error('Failed to load system settings:', error)
@@ -325,11 +339,32 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
         </div>
 
         {/* Notification Bar */}
-        <div className="flex-1 mx-4 min-w-0 max-w-2xl">
-          <NotificationBar
-            message={notifications.editor}
-            className="rounded-md border-none bg-yellow-50/80 h-8"
-          />
+        <div className="flex-1 mx-4 min-w-0 max-w-2xl flex justify-center">
+          {notifications.editor && (
+            <div className="relative flex items-center overflow-hidden rounded-full bg-gradient-to-r from-green-50 to-blue-50 px-3 py-1 border border-blue-100/50 shadow-sm max-w-[400px]">
+              <Megaphone className="mr-2 h-4 w-4 text-green-600 flex-shrink-0" />
+              <div className="w-[200px] h-6 relative overflow-hidden">
+                <NotificationBar
+                  message={notifications.editor}
+                  className="bg-transparent border-none h-6 text-sm text-slate-700"
+                  showIcon={false}
+                />
+              </div>
+              <div className="mx-2 h-4 w-[1px] bg-slate-200" />
+              <button
+                onClick={() => setIsNotificationOpen(true)}
+                className="whitespace-nowrap text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                立即查看
+              </button>
+              <button
+                onClick={() => setNotifications({...notifications, editor: undefined})}
+                className="ml-2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -436,6 +471,25 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
         </div>
       </div>
     </div>
+
+    {/* Notification Dialog */}
+    <Dialog open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>系统通知</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <div
+            className="text-sm leading-relaxed text-slate-700 [&_a]:text-blue-600 [&_a]:underline [&_strong]:font-semibold"
+            dangerouslySetInnerHTML={{ __html: notifications.editor || '' }}
+          />
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setIsNotificationOpen(false)}>关闭</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     </TooltipProvider>
   )
 }

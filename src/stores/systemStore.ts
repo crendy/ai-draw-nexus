@@ -10,13 +10,14 @@ interface SystemState {
   notifications: {
     homepage?: string
     editor?: string
+    homepageAnnouncement?: string
   }
   setSystemName: (name: string) => void
   setShowAbout: (show: boolean) => void
   setSidebarCollapsed: (collapsed: boolean) => void
   setDefaultEngine: (engine: EngineType) => void
   setDefaultModelPrompt: (prompt: string) => void
-  setNotifications: (notifications: { homepage?: string; editor?: string }) => void
+  setNotifications: (notifications: { homepage?: string; editor?: string; homepageAnnouncement?: string }) => void
 }
 
 export const useSystemStore = create<SystemState>((set) => ({
