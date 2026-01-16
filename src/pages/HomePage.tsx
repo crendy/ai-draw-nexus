@@ -26,72 +26,10 @@ import {
   validateImageFile,
 } from '@/lib/fileUtils'
 
-const MarqueeRow = ({ items, direction = 'left', speed = 40 }: { items: typeof QUICK_ACTIONS, direction?: 'left' | 'right', speed?: number }) => {
-  return (
-    <div className="relative flex overflow-hidden w-full">
-      <div
-        className={`flex gap-4 py-2 animate-marquee-${direction} w-max`}
-        style={{
-          animationDuration: `${speed}s`,
-        }}
-      >
-        {[...items, ...items, ...items, ...items].map((action, index) => (
-          <button
-            key={`${action.label}-${index}`}
-            onClick={() => {
-              // Need to access handleQuickAction from parent scope or pass it down
-              // For simplicity, we'll just dispatch a custom event or use a prop if we were inside the component
-              // But since this is outside, let's just make it a render prop or pass the handler
-              // Actually, let's move this component inside HomePage or pass the handler
-            }}
-            // We will handle onClick in the usage below by passing the handler
-            data-action-index={index % items.length}
-            className="group relative flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-sm border border-border/50 transition-all hover:shadow-md hover:border-primary/20 flex-shrink-0 whitespace-nowrap"
-          >
-            {action.image ? (
-              <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-muted/20">
-                <img src={action.image} alt={action.label} className="h-full w-full object-cover" />
-              </div>
-            ) : (
-              <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-primary/5 text-primary`}>
-                <action.icon className="h-4 w-4" />
-              </div>
-            )}
-            <span className="text-sm font-medium text-gray-900">
-              {action.prompt}
-            </span>
-          </button>
-        ))}
-      </div>
-      <style>{`
-        @keyframes marquee-left {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-25%); }
-        }
-        @keyframes marquee-right {
-          0% { transform: translateX(-25%); }
-          100% { transform: translateX(0); }
-        }
-        .animate-marquee-left {
-          animation: marquee-left linear infinite;
-        }
-        .animate-marquee-right {
-          animation: marquee-right linear infinite;
-        }
-        .animate-marquee-left:hover,
-        .animate-marquee-right:hover {
-          animation-play-state: paused;
-        }
-      `}</style>
-    </div>
-  )
-}
-
 export function HomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
   const defaultEngine = useSystemStore((state) => state.defaultEngine)
-  const setDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
   const notifications = useSystemStore((state) => state.notifications)
   const [isLoading, setIsLoading] = useState(false)
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
@@ -105,7 +43,6 @@ export function HomePage() {
   const setInitialPrompt = useChatStore((state) => state.setInitialPrompt)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const storageMode = useStorageModeStore((state) => state.mode)
-  const systemName = useSystemStore((state) => state.systemName)
   const { error: showError } = useToast()
 
   // 新建项目弹窗状态
@@ -409,9 +346,9 @@ export function HomePage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-surface shadow-sm">
                 <Logo className="h-7 w-7" />
               </div>
-              <span>一句话呈所想</span>
+              <span>一句话呈创意</span>
             </div>
-            <p className="text-lg text-muted-foreground">与 AI 对话轻松绘图</p>
+            <p className="text-lg text-muted-foreground">与 AI 对话，让创意即刻呈现</p>
           </div>
 
           {/* Chat Input Box */}
