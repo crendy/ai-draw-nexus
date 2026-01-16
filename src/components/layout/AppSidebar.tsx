@@ -48,10 +48,6 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
       return
     }
 
-    if (mode === 'cloud' && newMode === 'local') {
-      authService.logout()
-    }
-
     setMode(newMode)
     setIsModeDialogOpen(false)
     // Force reload to ensure clean state and re-fetch data from correct source
