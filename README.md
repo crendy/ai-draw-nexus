@@ -2,15 +2,9 @@
 
 <div align=center>
 
-<strong>
-  
-<font   size="7"> 
   
   # AI Draw <img src="https://github.com/user-attachments/assets/afbc4c80-53ee-4fdd-93cd-b0710408eb8c" width = "30" height = "30" div  /> 一句话现所想
-  
-</font>
 
-</strong>
 
 与 AI 对话，让所想即刻呈现
 
