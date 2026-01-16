@@ -1,6 +1,18 @@
 import {BrowserRouter, Route, Routes} from 'react-router-dom'
 import {Toaster, TooltipProvider} from '@/components/ui'
-import {AboutPage, AdminPage, EditorPage, HomePage, LoginPage, ProfilePage, ProjectsPage, RegisterPage} from '@/pages'
+import {
+  AboutPage,
+  AdminPage,
+  ChangelogPage,
+  EditorPage,
+  FeedbackPage,
+  HomePage,
+  LoginPage,
+  ManualPage,
+  ProfilePage,
+  ProjectsPage,
+  RegisterPage
+} from '@/pages'
 import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
 
 function App() {
@@ -13,6 +25,11 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/about" element={<AboutPage />} />
+
+          {/* Documentation Routes */}
+          <Route path="/docs/manual" element={<ManualPage />} />
+          <Route path="/docs/changelog" element={<ChangelogPage />} />
+          <Route path="/docs/feedback" element={<FeedbackPage />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>

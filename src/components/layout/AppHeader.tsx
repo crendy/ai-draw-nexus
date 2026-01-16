@@ -13,7 +13,7 @@ import {
 } from '@/components/ui'
 import {NotificationBar} from '@/components/ui/NotificationBar'
 import {authService} from '@/services/authService'
-import {useNavigate} from 'react-router-dom'
+import {Link, useNavigate} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
 import {ENGINES} from '@/constants'
@@ -84,6 +84,12 @@ export function AppHeader() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <div className="flex items-center gap-6 ml-2">
+          <Link to="/docs/manual" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">使用手册</Link>
+          {/*<Link to="/docs/changelog" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">更新日志</Link>*/}
+          <Link to="/docs/feedback" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">问题反馈</Link>
+        </div>
       </div>
 
       {/* Notification Bar - Moved to right side */}
